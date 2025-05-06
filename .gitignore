@@ -1,0 +1,12 @@
+.idea/
+api_key.txt
+*.egg-info/
+*.txt
+testbed/
+Results/
+__pycache__/
+
+# fuzzing artifacts
+.z3-trace
+
+.env
