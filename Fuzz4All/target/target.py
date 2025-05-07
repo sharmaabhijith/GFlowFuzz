@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Tuple, Union
 import torch
 from rich.progress import track
 
-from Fuzz4All.model import make_model
+from Fuzz4All.coder_LM import build_coder_LM
 from Fuzz4All.util.api_request import create_config, request_engine
 from Fuzz4All.util.Logger import LEVEL, Logger
 
@@ -38,7 +38,7 @@ class Target(object):
         self.max_length = kwargs["max_length"]
         self.device = kwargs["device"]
         self.coder_name = kwargs["coder_name"]
-        self.model = None
+        self.coder = None
         # loggers
         self.g_logger = Logger(self.folder, "log_generation.txt", level=kwargs["level"])
         self.v_logger = Logger(self.folder, "log_validation.txt", level=kwargs["level"])
@@ -111,7 +111,9 @@ class Target(object):
 
     # each target defines their way of validating prompts (can overwrite)
     def validate_prompt(self, prompt: str):
-        fos = self.model.generate(
+        # NEED TO ADD INSTRUCTOR LM HERE TO ELABORATE ON INSTRUCTIONS BASED ON PROMPT 
+        # BEFORE GENERATING CODE
+        fos = self.coder.generate(
             prompt,
             batch_size=self.batch_size,
             temperature=self.temperature,
@@ -244,7 +246,7 @@ class Target(object):
         if self.special_eos is not None:
             eos = eos + [self.special_eos]
 
-        self.model = make_model(
+        self.coder = build_coder_LM(
             eos=eos,
             coder_name=coder_name,
             device=self.device,
@@ -260,9 +262,11 @@ class Target(object):
         self.prompt = self.initial_prompt
         self.m_logger.logo("Done", level=LEVEL.INFO)
 
-    def generate_model(self) -> List[str]:
+    def generate_code(self) -> List[str]:
         self.g_logger.logo(self.prompt, level=LEVEL.VERBOSE)
-        return self.model.generate(
+        # NEED TO ADD INSTRUCTOR LM HERE TO ELABORATE ON INSTRUCTIONS BASED ON PROMPT 
+        # BEFORE GENERATING CODE
+        return self.coder.generate(
             self.prompt,
             batch_size=self.batch_size,
             temperature=self.temperature,
@@ -272,11 +276,11 @@ class Target(object):
     # generation
     def generate(self, **kwargs) -> Union[List[str], bool]:
         try:
-            fos = self.generate_model()
+            fos = self.generate_code()
         except RuntimeError:
             # catch cuda out of memory error.
             self.m_logger.logo("cuda out of memory...", level=LEVEL.INFO)
-            del self.model
+            del self.coder
             torch.cuda.empty_cache()
             return False
         new_fos = []
