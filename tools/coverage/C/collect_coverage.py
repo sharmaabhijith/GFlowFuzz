@@ -6,7 +6,7 @@ import time
 
 from rich.traceback import install
 
-from Fuzz4All.util.util import natural_sort_key
+from GFlowFuzz.util.util import natural_sort_key
 
 install()
 CURRENT_TIME = time.time()

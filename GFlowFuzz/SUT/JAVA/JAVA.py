@@ -5,12 +5,11 @@ from pathlib import Path
 from re import search
 from typing import List, Union
 
-from Fuzz4All.target.target import FResult, Target
-from Fuzz4All.util.Logger import LEVEL
-from Fuzz4All.util.util import comment_remover
+from GFlowFuzz.SUT.base_sut import FResult, base_SUT
+from GFlowFuzz.utils import comment_remover
 
 
-class JAVATarget(Target):
+class JAVA_SUT(base_SUT):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         if kwargs["template"] == "fuzzing_with_config_file":

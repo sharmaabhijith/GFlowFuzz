@@ -7,8 +7,8 @@ from multiprocessing import Process
 from threading import Timer
 from typing import List, Tuple, Union
 
-from Fuzz4All.target.target import FResult, Target
-from Fuzz4All.util.Logger import LEVEL
+from GFlowFuzz.SUT.base_sut import FResult, base_SUT
+from GFlowFuzz.utils import LEVEL
 
 # create an enum with some code snippets
 
@@ -78,7 +78,7 @@ qc = transpile(qc, optimization_level=3)
 """
 
 
-class QiskitTarget(Target):
+class Qiskit_SUT(base_SUT):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.SYSTEM_MESSAGE = "You are a Qiskit Fuzzer"

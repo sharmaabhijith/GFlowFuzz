@@ -2,7 +2,7 @@
 
 import glob
 
-from Fuzz4All.util.util import comment_remover, natural_sort_key
+from GFlowFuzz.util.util import comment_remover, natural_sort_key
 
 
 def filter(code, begin, target, lang="c") -> bool:
