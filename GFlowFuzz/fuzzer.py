@@ -4,7 +4,6 @@ import os
 import time
 from typing import List, Tuple, Optional, Any
 
-import click
 from rich.traceback import install
 install()
 
@@ -16,9 +15,7 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
-from GFlowFuzz.SUT import make_SUT_with_config
 from GFlowFuzz.SUT.base_sut import base_SUT
-from GFlowFuzz.utils import load_config_file
 
 
 class Fuzzer:
@@ -26,7 +23,7 @@ class Fuzzer:
 
     def __init__(
         self,
-        target: base_SUT,
+        SUT: base_SUT,
         number_of_iterations: int,
         total_time: int,
         output_folder: str,
@@ -34,17 +31,17 @@ class Fuzzer:
         otf: bool = False,
     ):
         """
-        Initialize the fuzzer with target and configuration parameters.
+        Initialize the fuzzer with SUT and configuration parameters.
         
         Args:
-            target: The target to fuzz
+            SUT: The SUT to fuzz
             number_of_iterations: Maximum number of fuzzing iterations
             total_time: Maximum fuzzing time in hours
             output_folder: Where to store outputs
             resume: Whether to resume from previous runs
             otf: Whether to validate on the fly
         """
-        self.target = target
+        self.SUT = SUT
         self.number_of_iterations = number_of_iterations
         self.total_time = total_time  # in hours
         self.output_folder = output_folder
@@ -126,15 +123,15 @@ class Fuzzer:
         self.count += 1
         
         if self.otf:
-            f_result, message = self.target.validate_individual(file_name)
-            self.target.parse_validation_message(f_result, message, file_name)
+            f_result, message = self.SUT.validate_individual(file_name)
+            self.SUT.parse_validation_message(f_result, message, file_name)
             return f_result, fo
         
         return None, None
 
     def run(self) -> None:
         """Run the fuzzing process."""
-        self.target.initialize()
+        self.SUT.initialize()
         self.start_time = time.time()
         
         with Progress(
@@ -156,9 +153,9 @@ class Fuzzer:
             
             # Main fuzzing loop
             while self.should_continue():
-                fos = self.target.generate()
+                fos = self.SUT.generate()
                 if not fos:
-                    self.target.initialize()
+                    self.SUT.initialize()
                     continue
                 
                 prev = []
@@ -170,134 +167,13 @@ class Fuzzer:
                         prev.append((f_result, content))
                 
                 if prev:
-                    self.target.update(prev=prev)
+                    self.SUT.update(prev=prev)
                 else:
-                    self.target.update()
+                    self.SUT.update()
     
     def evaluate_all(self) -> None:
         """Evaluate all generated outputs against the oracle."""
-        self.target.validate_all()
+        self.SUT.validate_all()
 
 
-def fuzz(
-    target: base_SUT,
-    number_of_iterations: int,
-    total_time: int,
-    output_folder: str,
-    resume: bool,
-    otf: bool,
-):
-    """
-    Legacy function for backward compatibility.
-    
-    Use Fuzzer class instead for new code.
-    """
-    fuzzer = Fuzzer(target, number_of_iterations, total_time, output_folder, resume, otf)
-    fuzzer.run()
 
-
-# evaluate against the oracle to discover any potential bugs
-# used after the generation
-def evaluate_all(target: base_SUT):
-    """
-    Legacy function for backward compatibility.
-    
-    Use Fuzzer.evaluate_all() instead for new code.
-    """
-    fuzzer = Fuzzer(target, 0, 0, "", False, False)
-    fuzzer.evaluate_all()
-
-
-@click.group()
-@click.option(
-    "config_file",
-    "--config",
-    type=str,
-    default=None,
-    help="Path to the configuration file.",
-)
-@click.pass_context
-def cli(ctx, config_file):
-    """Run the main using a configuration file."""
-    if config_file is not None:
-        config_dict = load_config_file(config_file)
-        ctx.ensure_object(dict)
-        ctx.obj["CONFIG_DICT"] = config_dict
-
-
-@cli.command("main_with_config")
-@click.pass_context
-@click.option(
-    "folder",
-    "--folder",
-    type=str,
-    default="Results/test",
-    help="folder to store results",
-)
-@click.option(
-    "cpu",
-    "--cpu",
-    is_flag=True,
-    help="to use cpu",  # this is for GPU resource low situations where only cpu is available
-)
-@click.option(
-    "batch_size",
-    "--batch_size",
-    type=int,
-    default=30,
-    help="batch size for the model",
-)
-@click.option(
-    "coder_name",
-    "--coder_name",
-    type=str,
-    default="bigcode/starcoderbase",
-    help="model to use",
-)
-@click.option(
-    "target",
-    "--target",
-    type=str,
-    default="",
-    help="specific target to run",
-)
-
-def main_with_config(ctx, folder, cpu, batch_size, target, coder_name):
-    """Run the main using a configuration file."""
-    config_dict = ctx.obj["CONFIG_DICT"]
-    fuzzing = config_dict["fuzzing"]
-    config_dict["fuzzing"]["output_folder"] = folder
-    if cpu:
-        config_dict["coder"]["device"] = "cpu"
-    if batch_size:
-        config_dict["coder"]["batch_size"] = batch_size
-    if coder_name != "":
-        config_dict["coder"]["coder_name"] = coder_name
-    if target != "":
-        config_dict["fuzzing"]["target_name"] = target
-    print(config_dict)
-
-    target_obj = make_SUT_with_config(config_dict)
-    if not fuzzing["evaluate"]:
-        assert (
-            not os.path.exists(folder) or fuzzing["resume"]
-        ), f"{folder} already exists!"
-        os.makedirs(fuzzing["output_folder"], exist_ok=True)
-        
-        # Use the Fuzzer class instead of the fuzz function
-        fuzzer = Fuzzer(
-            target=target_obj,
-            number_of_iterations=fuzzing["num"],
-            total_time=fuzzing["total_time"],
-            output_folder=folder,
-            resume=fuzzing["resume"],
-            otf=fuzzing["otf"],
-        )
-        fuzzer.run()
-    else:
-        fuzzer = Fuzzer(target_obj, 0, 0, folder, False, False)
-        fuzzer.evaluate_all()
-
-
-if __name__ == "__main__":
-    cli()
