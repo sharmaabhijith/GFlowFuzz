@@ -43,19 +43,6 @@ LLM-based fuzzers often suffer from **mode collapse**, repeatedly producing simi
 R(C) = Δcoverage(C) + λ · coverage(C) + β · 1[bug(C)]
 ```
 
-## 📂 Repository Structure
-
-GFlowFuzz/
-├── distiller/         # Prompt distillation (Φd)
-├── instructor/        # GFlowNet training for instruction gen (Φg)
-├── coder/             # Code generation using LLMs (Φc)
-├── oracle/            # Coverage + bug reward computation
-├── replay_buffer/     # Trajectory / reward storage
-├── configs/           # YAML/JSON hyper-params
-├── scripts/           # Train & evaluate pipelines
-├── utils/             # Common helpers
-└── README.md          # ← you are here!
-
 ## Usage
 
 To download the models for the local language model, you need a way to retireve them, either from HuggingFace directly or from a local repository.
