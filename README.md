@@ -41,6 +41,7 @@ LLM-based fuzzers often suffer from **mode collapse**, repeatedly producing simi
 
 ```text
 R(C) = Δcoverage(C) + λ · coverage(C) + β · 1[bug(C)]
+```
 
 ## 📂 Repository Structure
 
