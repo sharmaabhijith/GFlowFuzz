@@ -2,52 +2,34 @@ import os
 import signal
 import time
 import random
-
 import openai
-
-from GFlowFuzz.SUT.base_sut import FResult
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Callable
+from GFlowFuzz.utils import Logger
 
 openai.api_key = os.environ.get("OPENAI_API_KEY", "dummy")
 client = openai.OpenAI()
 
+@dataclass
+class OpenAIConfig:
+    prev: Dict
+    messages: List
+    max_tokens: int
+    temperature: float = 2
+    engine_name: str = "gpt-3.5-turbo"
+    stop: Optional[str] = None
+    top_p: int = 1
 
-def create_openai_config(
-    prompt,
-    engine_name="code-davinci-002",
-    stop=None,
-    max_tokens=200,
-    top_p=1,
-    n=1,
-    temperature=0,
-):
-    return {
-        "engine": engine_name,
-        "prompt": prompt,
-        "max_tokens": max_tokens,
-        "top_p": top_p,
-        "temperature": temperature,
-        "logprobs": 1,
-        "n": n,
-        "stop": stop,
-    }
-
-
-def create_config(
-    prev: dict,
-    messages: list,
-    max_tokens: int,
-    temperature: float = 2,
-    model: str = "gpt-3.5-turbo",
-):
-    if prev == {}:
-        return {
-            "model": model,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-            "messages": messages,
-        }
-    else:
-        return prev
+@dataclass
+class DistillerConfig:
+    folder: str
+    logger: Logger
+    wrap_prompt_func: Callable[[str], str]
+    validate_prompt_func: Callable[[str], float]
+    prompt_components: Dict[str, str] = field(default_factory=dict)
+    openai_config: OpenAIConfig = None
+    system_message: str = "You are an auto-prompting tool"
+    instruction: str = "Please summarize the above documentation in a concise manner to describe the usage and functionality of the target"
 
 
 def handler(signum, frame):
@@ -82,39 +64,3 @@ def request_engine(config):
             signal.alarm(0)  # cancel alarm
             time.sleep(1)
     return ret
-
-def update_strategy(self, new_code: str) -> str:
-        while 1:
-            strategy = random.randint(0, self.p_strategy)
-            # generate new code using separator
-            if strategy == 0:
-                return f"\n{new_code}\n{self.prompt_used['separator']}\n"
-            # mutate existing code
-            elif strategy == 1:
-                return f"\n{new_code}\n{self.m_prompt}\n"
-            # semantically equivalent code generation
-            elif strategy == 2:
-                return f"\n{new_code}\n{self.se_prompt}\n"
-            # combine previous two code generations
-            else:
-                if self.prev_example is not None:
-                    return f"\n{self.prev_example}\n{self.prompt_used['separator']}\n{self.prompt_used['begin']}\n{new_code}\n{self.c_prompt}\n"
-
-# update
-def update(self, **kwargs):
-    new_code = ""
-    for result, code in kwargs["prev"]:
-        if (
-            result == FResult.SAFE
-            and self.filter(code)
-            and self.clean_code(code) != self.prev_example
-        ):
-            new_code = self.clean_code(code)
-    if new_code != "" and self.p_strategy != -1:
-        self.prompt = (
-            self.initial_prompt
-            + self.update_strategy(new_code)
-            + self.prompt_used["begin"]
-            + "\n"
-        )
-        self.prev_example = new_code

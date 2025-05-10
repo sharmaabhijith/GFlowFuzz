@@ -26,12 +26,12 @@ from transformers import (
 )
 from vllm import LLM, SamplingParams
 
-from GFlowFuzz.instruct_LM.general_utils import (
+from GFlowFuzz.instruct_LM.utils import (
     InfIterator, 
     batch_cosine_similarity_kernel, 
     formatted_dict,
 )
-from GFlowFuzz.instruct_LM.instruct_utils import TrainerConfig, InstructionBuffer, InstructionEvaluator
+from GFlowFuzz.instruct_LM.utils import TrainerConfig, InstructionBuffer, InstructionEvaluator
 from sampler import InstructionSampler
 
 

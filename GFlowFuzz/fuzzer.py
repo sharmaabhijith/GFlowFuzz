@@ -15,7 +15,11 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
+from GFlowFuzz.distiller_LM import Distiller, DistillerConfig
+from GFlowFuzz.instruct_LM import Instructor
+from GFlowFuzz.coder_LM import Coder
 from GFlowFuzz.SUT.base_sut import base_SUT
+from GFlowFuzz.evaluator import Oracle
 
 
 class Fuzzer:
@@ -25,6 +29,9 @@ class Fuzzer:
         self,
         SUT: base_SUT,
         number_of_iterations: int,
+        distiller_config: DistillerConfig,
+        instructor_config, # TODO: ADD DATATYPE
+        coder_config, # TODO: ADD DATATYPE
         total_time: int,
         output_folder: str,
         resume: bool = False,
@@ -49,25 +56,15 @@ class Fuzzer:
         self.otf = otf
         self.count = 0
         self.start_time = 0
-        
         # Create output folder if it doesn't exist
         os.makedirs(self.output_folder, exist_ok=True)
-
-    def write_to_file(self, content: str, file_name: str) -> None:
-        """
-        Write content to a file.
-        
-        Args:
-            content: Content to write
-            file_name: File path to write to
-        """
-        try:
-            with open(file_name, "w", encoding="utf-8") as f:
-                f.write(content)
-        except Exception as e:
-            print(f"Error writing to file {file_name}: {e}")
+        # initialize the 3 modules of the framework
+        self.distiller = Distiller(distiller_config)
+        self.instructor = Instructor(instructor_config)
+        self.coder = Coder(coder_config)
+        self.oracle = Oracle(self.SUT)
     
-    def get_resume_count(self) -> int:
+    def __get_resume_count(self) -> int:
         """
         Get the next count for resuming a fuzzing run.
         
@@ -92,48 +89,12 @@ class Fuzzer:
             print(f"Error getting resume count: {e}")
             return 0
 
-    def should_continue(self) -> bool:
-        """
-        Check if fuzzing should continue based on iteration count and time.
-        
-        Returns:
-            True if fuzzing should continue, False otherwise
-        """
-        if self.count >= self.number_of_iterations:
-            return False
-            
-        elapsed_time = time.time() - self.start_time
-        if elapsed_time >= self.total_time * 3600:  # Convert hours to seconds
-            return False
-            
-        return True
-
-    def handle_result(self, fo: str) -> Tuple[Optional[bool], Optional[str]]:
-        """
-        Handle a single fuzzing result, writing it to file and validating if needed.
-        
-        Args:
-            fo: The fuzzing output
-            
-        Returns:
-            Tuple of (validation_result, message) if otf is True, else (None, None)
-        """
-        file_name = os.path.join(self.output_folder, f"{self.count}.fuzz")
-        self.write_to_file(fo, file_name)
-        self.count += 1
-        
-        if self.otf:
-            f_result, message = self.SUT.validate_individual(file_name)
-            self.SUT.parse_validation_message(f_result, message, file_name)
-            return f_result, fo
-        
-        return None, None
-
     def run(self) -> None:
         """Run the fuzzing process."""
-        self.SUT.initialize()
+        # Generate auto-prompt from documentation using the distiller
+        self.initial_prompt = self.distiller.generate_prompt()
+        self.prompt = self.initial_prompt
         self.start_time = time.time()
-        
         with Progress(
             TextColumn("Fuzzing • [progress.percentage]{task.percentage:>3.0f}%"),
             BarColumn(),
@@ -142,34 +103,39 @@ class Fuzzer:
             TimeElapsedColumn(),
         ) as p:
             task = p.add_task("Fuzzing", total=self.number_of_iterations)
-            
             # Resume from previous run if needed
-            self.count = self.get_resume_count()
+            self.count = self.__get_resume_count()
             if self.resume and self.count > 0:
                 log = f" (resuming from {self.count})"
                 p.console.print(log)
-            
             p.update(task, advance=self.count)
-            
             # Main fuzzing loop
-            while self.should_continue():
-                fos = self.SUT.generate()
-                if not fos:
-                    self.SUT.initialize()
-                    continue
-                
+            while (
+                self.count < self.number_of_iterations
+                ) and (
+                time.time() - self.start_time < self.total_time * 3600
+                ):
+                # Generate a sequence of instructions from the prompt
+                instructions, log_probs, log_zs = self.instructor.generate_instruction_sequence(
+                    self.prompt
+                )
+                # Generate code from the instructions using the coder
+                fos = self.coder.generate_code(prompt=instructions)
                 prev = []
                 for fo in fos:
-                    f_result, content = self.handle_result(fo)
-                    p.update(task, advance=1)
-                    
-                    if self.otf and f_result is not None:
-                        prev.append((f_result, content))
-                
-                if prev:
-                    self.SUT.update(prev=prev)
-                else:
-                    self.SUT.update()
+                    f_result, content = self.oracle.check(
+                        fo = fo,
+                        output_folder = self.output_folder,
+                        count = self.count,
+                        otf = self.otf,
+                    )
+                    log_reward = self.oracle
+                    loss = self.oracle.compute_tb_loss(
+                        log_z_sum=log_zs,
+                        log_prob_sum=log_probs,
+                        log_reward=log_reward,
+                    )
+                    loss.backward()
     
     def evaluate_all(self) -> None:
         """Evaluate all generated outputs against the oracle."""

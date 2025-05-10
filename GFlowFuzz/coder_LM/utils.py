@@ -1,4 +1,14 @@
 from transformers import StoppingCriteria
+from dataclasses import dataclass
+from typing import Dict, List
+
+@dataclass
+class CoderConfig:
+    coder_name: str
+    eos: List[str]
+    device: str
+    max_length: int
+
 
 class EndOfFunctionCriteria(StoppingCriteria):
     def __init__(self, start_length, eos, tokenizer, *args, **kwargs):

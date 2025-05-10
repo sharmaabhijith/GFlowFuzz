@@ -1,9 +1,10 @@
 from typing import List
 from .base_coder import BaseCoder
+from .utils import CoderConfig
 
 class StarCoder(BaseCoder):
-    def __init__(self, coder_name: str, device: str, eos: List[str], max_length: int):
-        super().__init__(coder_name, device, eos, max_length)
+    def __init__(self, coder_config: CoderConfig):
+        super().__init__(coder_config)
         self.prefix_token = "<fim_prefix>"
         self.suffix_token = "<fim_suffix><fim_middle>"
 

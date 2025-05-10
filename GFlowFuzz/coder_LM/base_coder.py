@@ -6,7 +6,7 @@ from transformers import (
     AutoTokenizer,
     StoppingCriteriaList,
 )
-from coder_LM.utils import EndOfFunctionCriteria
+from coder_LM.utils import EndOfFunctionCriteria, CoderConfig
 
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"  # disable warning
@@ -16,19 +16,16 @@ EOF_STRINGS = ["<|endoftext|>", "###"]
 class BaseCoder:
     def __init__(
         self,
-        coder_name: str,
-        device: str,
-        eos: List[str],
-        max_length: int,
+        coder_config: CoderConfig, 
     ):
-        self.device = device
-        self.tokenizer = AutoTokenizer.from_pretrained(coder_name)
+        self.device = coder_config.device
+        self.tokenizer = AutoTokenizer.from_pretrained(coder_config.coder_name)
         self.model = AutoModelForCausalLM.from_pretrained(
-            coder_name,
+            coder_config.coder_name,
             torch_dtype=torch.bfloat16,
-        ).to(device)
-        self.eos = EOF_STRINGS + eos
-        self.max_length = max_length
+        ).to(coder_config.device)
+        self.eos = EOF_STRINGS + coder_config.eos
+        self.max_length = coder_config.max_length
         self.skip_special_tokens = False
 
     def format_prompt(self, prompt: str) -> str:
@@ -36,7 +33,7 @@ class BaseCoder:
         return prompt
 
     @torch.inference_mode()
-    def generate(
+    def generate_code(
         self,
         prompt: str,
         batch_size: int = 10,
