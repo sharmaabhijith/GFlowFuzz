@@ -6,6 +6,8 @@ import torch
 
 from GFlowFuzz.SUT.base_sut import FResult, base_SUT
 from GFlowFuzz.utils import LEVEL, comment_remover
+from GFlowFuzz.oracle.coverage import CoverageManager, Tool
+import pathlib
 
 
 class GO_SUT(base_SUT):
@@ -19,6 +21,10 @@ class GO_SUT(base_SUT):
             raise NotImplementedError
 
         self.special_eos = "package main"
+        self.coverage_manager = CoverageManager(Tool.GO, pathlib.Path(f"/tmp/out{self.CURRENT_TIME}"))
+        self.prev_coverage = 0
+        self.lambda_ = kwargs.get("lambda_", 0.1)
+        self.beta1_ = kwargs.get("beta1_", 1.0)
 
     def wrap_prompt(self, prompt: str) -> str:
         return (
@@ -55,7 +61,7 @@ class GO_SUT(base_SUT):
             pass
         return "/tmp/temp{}.go".format(self.CURRENT_TIME)
 
-    def validate_individual(self, filename) -> (FResult, str):
+    def validate_individual(self, filename) -> (FResult, str, float):
         try:
             with open(filename, "r", encoding="utf-8") as f:
                 code = f.read()
@@ -85,12 +91,33 @@ class GO_SUT(base_SUT):
                 ],
                 shell=True,
             )  # kill all tests thank you
-            return FResult.TIMED_OUT, "go"
+            return FResult.TIMED_OUT, "go", 0.0
         except UnicodeDecodeError as ue:
-            return FResult.FAILURE, "decoding error"
+            return FResult.FAILURE, "decoding error", 0.0
         if exit_code.returncode == 1:
-            return FResult.FAILURE, exit_code.stderr
+            fresult = FResult.FAILURE
+            msg = exit_code.stderr
         elif exit_code.returncode == 0:
-            return FResult.SAFE, exit_code.stdout
+            fresult = FResult.SAFE
+            msg = exit_code.stdout
         else:
-            return FResult.ERROR, exit_code.stderr
+            fresult = FResult.ERROR
+            msg = exit_code.stderr
+
+        self.coverage_manager.run_once()
+        new_cov = self.coverage_manager.update_total()
+        coverage_diff = new_cov - self.prev_coverage
+        bug = 1 if fresult in (FResult.FAILURE, FResult.ERROR) else 0
+        reward = coverage_diff + self.lambda_ * new_cov + self.beta1_ * bug
+        self.prev_coverage = new_cov
+
+        if fresult == FResult.SAFE:
+            return FResult.SAFE, f"its safe\nCoverage: {new_cov}", reward
+        elif fresult == FResult.ERROR:
+            return FResult.ERROR, f"{msg}\nCoverage: {new_cov}", reward
+        elif fresult == FResult.TIMED_OUT:
+            return FResult.ERROR, f"timed out\nCoverage: {new_cov}", reward
+        elif fresult == FResult.FAILURE:
+            return FResult.FAILURE, f"{msg}\nCoverage: {new_cov}", reward
+        else:
+            return (FResult.TIMED_OUT, f"Coverage: {new_cov}", reward)

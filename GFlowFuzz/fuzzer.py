@@ -19,7 +19,7 @@ from GFlowFuzz.distiller_LM import Distiller, DistillerConfig
 from GFlowFuzz.instruct_LM import Instructor
 from GFlowFuzz.coder_LM import Coder
 from GFlowFuzz.SUT.base_sut import base_SUT
-from GFlowFuzz.evaluator import Oracle
+from GFlowFuzz.oracle import Inspector
 
 
 class Fuzzer:
@@ -62,7 +62,7 @@ class Fuzzer:
         self.distiller = Distiller(distiller_config)
         self.instructor = Instructor(instructor_config)
         self.coder = Coder(coder_config)
-        self.oracle = Oracle(self.SUT)
+        self.oracle = Inspector(self.SUT)
     
     def __get_resume_count(self) -> int:
         """
@@ -123,17 +123,16 @@ class Fuzzer:
                 fos = self.coder.generate_code(prompt=instructions)
                 prev = []
                 for fo in fos:
-                    f_result, content = self.oracle.check(
+                    _, _, reward = self.oracle.inspect(
                         fo = fo,
                         output_folder = self.output_folder,
                         count = self.count,
                         otf = self.otf,
                     )
-                    log_reward = self.oracle
                     loss = self.oracle.compute_tb_loss(
                         log_z_sum=log_zs,
                         log_prob_sum=log_probs,
-                        log_reward=log_reward,
+                        log_reward=reward,
                     )
                     loss.backward()
     

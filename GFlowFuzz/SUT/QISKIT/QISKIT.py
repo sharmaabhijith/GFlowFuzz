@@ -9,6 +9,8 @@ from typing import List, Tuple, Union
 
 from GFlowFuzz.SUT.base_sut import FResult, base_SUT
 from GFlowFuzz.utils import LEVEL
+from GFlowFuzz.oracle.coverage import CoverageManager, Tool
+import pathlib
 
 # create an enum with some code snippets
 
@@ -88,6 +90,11 @@ class Qiskit_SUT(base_SUT):
             self.config_dict = config_dict
         else:
             raise NotImplementedError
+
+        self.coverage_manager = CoverageManager(Tool.QISKIT, pathlib.Path(f"/tmp/out{self.CURRENT_TIME}"))
+        self.prev_coverage = 0
+        self.lambda_ = kwargs.get("lambda_", 0.1)
+        self.beta1_ = kwargs.get("beta1_", 1.0)
 
     def write_back_file(self, code):
         try:
@@ -185,7 +192,7 @@ class Qiskit_SUT(base_SUT):
         with open(filename, "w", encoding="utf-8") as f:
             f.write(content)
 
-    def validate_individual(self, filepath: str) -> Tuple[FResult, str]:
+    def validate_individual(self, filepath: str) -> Tuple[FResult, str, float]:
         """Apply the oracle to define whether the input is valid or not."""
         self.v_logger.logo("--------------------------", level=LEVEL.VERBOSE)
 
@@ -197,22 +204,41 @@ class Qiskit_SUT(base_SUT):
             # try to parse again
             parser_result, parser_msg = self._validate_static(filepath)
             if parser_result != FResult.SAFE:
-                return parser_result, parser_msg
+                return parser_result, parser_msg, 0.0
 
         # check if the config_dict attribute exists
         if hasattr(self, "config_dict"):
             target = self.config_dict["target"]
             oracle = target["oracle"]
             if oracle == "crash":
-                return self._validate_with_crash_oracle(filepath)
+                fresult, msg = self._validate_with_crash_oracle(filepath)
             elif oracle == "diff":
-                return self._validate_with_diff_opt_levels(filepath)
+                fresult, msg = self._validate_with_diff_opt_levels(filepath)
             elif oracle == "metamorphic":
-                return self._validate_with_QASM_roundtrip(filepath)
+                fresult, msg = self._validate_with_QASM_roundtrip(filepath)
             elif oracle == "opt_and_qasm":
-                return self._validate_any_circuit(filepath)
+                fresult, msg = self._validate_any_circuit(filepath)
+            else:
+                fresult, msg = self._validate_with_crash_oracle(filepath)
+        else:
+            fresult, msg = self._validate_with_crash_oracle(filepath)
 
-        return self._validate_with_crash_oracle(filepath)
+        self.coverage_manager.run_once()
+        new_cov = self.coverage_manager.update_total()
+        coverage_diff = new_cov - self.prev_coverage
+        bug = 1 if fresult in (FResult.FAILURE, FResult.ERROR) else 0
+        reward = coverage_diff + self.lambda_ * new_cov + self.beta1_ * bug
+        self.prev_coverage = new_cov
+        if fresult == FResult.SAFE:
+            return FResult.SAFE, f"{msg}\nCoverage: {new_cov}", reward
+        elif fresult == FResult.ERROR:
+            return FResult.ERROR, f"{msg}\nCoverage: {new_cov}", reward
+        elif fresult == FResult.TIMED_OUT:
+            return FResult.ERROR, f"timed out\nCoverage: {new_cov}", reward
+        elif fresult == FResult.FAILURE:
+            return FResult.FAILURE, f"{msg}\nCoverage: {new_cov}", reward
+        else:
+            return (FResult.TIMED_OUT, f"Coverage: {new_cov}", reward)
 
     def _validate_with_diff_opt_levels(self, filepath: str) -> Tuple[FResult, str]:
         """Validate the input with different optimization levels.

@@ -6,6 +6,8 @@ import torch
 
 from GFlowFuzz.SUT.base_sut import FResult, base_SUT
 from GFlowFuzz.utils import comment_remover
+from GFlowFuzz.oracle.coverage import CoverageManager, Tool
+import pathlib
 
 
 def _check_sat(stdout):
@@ -61,6 +63,10 @@ class SMT_SUT(base_SUT):
             raise NotImplementedError
 
         self.special_eos = "#|"
+        self.coverage_manager = CoverageManager(Tool.CVC5, pathlib.Path(f"/tmp/out{self.CURRENT_TIME}"))
+        self.prev_coverage = 0
+        self.lambda_ = kwargs.get("lambda_", 0.1)
+        self.beta1_ = kwargs.get("beta1_", 1.0)
 
     def write_back_file(self, code):
         try:
@@ -111,7 +117,7 @@ class SMT_SUT(base_SUT):
         )
         return code
 
-    def validate_individual(self, filename) -> (FResult, str):
+    def validate_individual(self, filename) -> (FResult, str, float):
         try:
             cvc_exit_code = subprocess.run(
                 f"{self.target_name} -m -i -q --check-models --lang smt2 {filename}",
@@ -134,13 +140,33 @@ class SMT_SUT(base_SUT):
                 ],
                 shell=True,
             )  # kill all tests thank you
-            return FResult.TIMED_OUT, "CVC5 Timed out"
+            return FResult.TIMED_OUT, "CVC5 Timed out", 0.0
         except UnicodeDecodeError as ue:
-            return FResult.FAILURE, "UnicodeDecodeError"
+            return FResult.FAILURE, "UnicodeDecodeError", 0.0
 
         if cvc_exit_code.returncode != 0:
-            return FResult.FAILURE, "CVC5:\n{}".format(
+            fresult = FResult.FAILURE
+            msg = "CVC5:\n{}".format(
                 cvc_exit_code.stdout + cvc_exit_code.stderr,
             )
+        else:
+            fresult = FResult.SAFE
+            msg = "its safe"
 
-        return FResult.SAFE, "its safe"
+        self.coverage_manager.run_once()
+        new_cov = self.coverage_manager.update_total()
+        coverage_diff = new_cov - self.prev_coverage
+        bug = 1 if fresult in (FResult.FAILURE, FResult.ERROR) else 0
+        reward = coverage_diff + self.lambda_ * new_cov + self.beta1_ * bug
+        self.prev_coverage = new_cov
+
+        if fresult == FResult.SAFE:
+            return FResult.SAFE, f"{msg}\nCoverage: {new_cov}", reward
+        elif fresult == FResult.ERROR:
+            return FResult.ERROR, f"{msg}\nCoverage: {new_cov}", reward
+        elif fresult == FResult.TIMED_OUT:
+            return FResult.ERROR, f"timed out\nCoverage: {new_cov}", reward
+        elif fresult == FResult.FAILURE:
+            return FResult.FAILURE, f"{msg}\nCoverage: {new_cov}", reward
+        else:
+            return (FResult.TIMED_OUT, f"Coverage: {new_cov}", reward)

@@ -7,6 +7,8 @@ import torch
 
 from GFlowFuzz.SUT.base_sut import FResult, base_SUT
 from GFlowFuzz.utils import LEVEL, comment_remover
+from GFlowFuzz.oracle.coverage import CoverageManager, Tool
+import pathlib
 
 main_code = """
 int main(){
@@ -25,6 +27,11 @@ class CPP_SUT(base_SUT):
             self.config_dict = config_dict
         else:
             raise NotImplementedError
+
+        self.coverage_manager = CoverageManager(Tool.GPP, pathlib.Path(f"/tmp/out{self.CURRENT_TIME}"))
+        self.prev_coverage = 0
+        self.lambda_ = kwargs.get("lambda_", 0.1)
+        self.beta1_ = kwargs.get("beta1_", 1.0)
 
     def write_back_file(self, code):
         try:
@@ -114,15 +121,21 @@ class CPP_SUT(base_SUT):
 
         return FResult.SAFE, "its safe"
 
-    def validate_individual(self, filename) -> (FResult, str):
+    def validate_individual(self, filename) -> (FResult, str, float):
         fresult, msg = self.validate_compiler(self.target_name, filename)
+        self.coverage_manager.run_once()
+        new_cov = self.coverage_manager.update_total()
+        coverage_diff = new_cov - self.prev_coverage
+        bug = 1 if fresult in (FResult.FAILURE, FResult.ERROR) else 0
+        reward = coverage_diff + self.lambda_ * new_cov + self.beta1_ * bug
+        self.prev_coverage = new_cov
         if fresult == FResult.SAFE:
-            return FResult.SAFE, "its safe"
+            return FResult.SAFE, f"its safe\nCoverage: {new_cov}", reward
         elif fresult == FResult.ERROR:
-            return FResult.ERROR, f"{msg}"
+            return FResult.ERROR, f"{msg}\nCoverage: {new_cov}", reward
         elif fresult == FResult.TIMED_OUT:
-            return FResult.ERROR, "timed out"
+            return FResult.ERROR, f"timed out\nCoverage: {new_cov}", reward
         elif fresult == FResult.FAILURE:
-            return FResult.FAILURE, f"{msg}"
+            return FResult.FAILURE, f"{msg}\nCoverage: {new_cov}", reward
         else:
-            return (FResult.TIMED_OUT,)
+            return (FResult.TIMED_OUT, f"Coverage: {new_cov}", reward)

@@ -7,6 +7,8 @@ from typing import List, Union
 
 from GFlowFuzz.SUT.base_sut import FResult, base_SUT
 from GFlowFuzz.utils import comment_remover
+from GFlowFuzz.oracle.coverage import CoverageManager, Tool
+import pathlib
 
 
 class JAVA_SUT(base_SUT):
@@ -18,6 +20,11 @@ class JAVA_SUT(base_SUT):
             self.config_dict = config_dict
         else:
             raise NotImplementedError
+
+        self.coverage_manager = CoverageManager(Tool.JAVAC, pathlib.Path(f"/tmp/out{self.CURRENT_TIME}"))
+        self.prev_coverage = 0
+        self.lambda_ = kwargs.get("lambda_", 0.1)
+        self.beta1_ = kwargs.get("beta1_", 1.0)
 
     def write_back_file(self, code, write_back_name=""):
         if write_back_name != "":
@@ -71,7 +78,7 @@ class JAVA_SUT(base_SUT):
             self.CURRENT_TIME, public_class_name[0].split()[-1]
         )
 
-    def validate_individual(self, filename) -> (FResult, str):
+    def validate_individual(self, filename) -> (FResult, str, float):
         write_back_name = ""
         try:
             with open(filename, "r", encoding="utf-8") as f:
@@ -104,10 +111,34 @@ class JAVA_SUT(base_SUT):
                 ],
                 shell=True,
             )  # kill all tests thank you
-            return FResult.TIMED_OUT, "java"
+            return FResult.TIMED_OUT, "java", 0.0
+
+        fresult = None
+        msg = ""
         if exit_code.returncode == 1:
-            return FResult.FAILURE, exit_code.stderr
+            fresult = FResult.FAILURE
+            msg = exit_code.stderr
         elif exit_code.returncode == 0:
-            return FResult.SAFE, "its safe"
+            fresult = FResult.SAFE
+            msg = "its safe"
         else:
-            return FResult.ERROR, exit_code.stderr
+            fresult = FResult.ERROR
+            msg = exit_code.stderr
+
+        self.coverage_manager.run_once()
+        new_cov = self.coverage_manager.update_total()
+        coverage_diff = new_cov - self.prev_coverage
+        bug = 1 if fresult in (FResult.FAILURE, FResult.ERROR) else 0
+        reward = coverage_diff + self.lambda_ * new_cov + self.beta1_ * bug
+        self.prev_coverage = new_cov
+
+        if fresult == FResult.SAFE:
+            return FResult.SAFE, f"its safe\nCoverage: {new_cov}", reward
+        elif fresult == FResult.ERROR:
+            return FResult.ERROR, f"{msg}\nCoverage: {new_cov}", reward
+        elif fresult == FResult.TIMED_OUT:
+            return FResult.ERROR, f"timed out\nCoverage: {new_cov}", reward
+        elif fresult == FResult.FAILURE:
+            return FResult.FAILURE, f"{msg}\nCoverage: {new_cov}", reward
+        else:
+            return (FResult.TIMED_OUT, f"Coverage: {new_cov}", reward)

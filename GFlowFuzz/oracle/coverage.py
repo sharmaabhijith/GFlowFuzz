@@ -20,9 +20,9 @@ cmd = [compiler, *COV_FLAGS.get(compiler, []),
 class CoverageManager:
     """
     Collects and summarises per-line coverage for a single compiler/SUT.
-    profile_dir    – directory where .profraw, .gcda, .exec, etc. are kept
-    tool           – one of the Tool enum values
-    binary_path    – path to the instrumented executable or script runner
+    profile_dir: directory where .profraw, .gcda, .exec, etc. are kept
+    tool: one of the Tool enum values
+    binary_path: path to the instrumented executable or script runner
     """
     def __init__(self, tool: Tool, binary_path: pathlib.Path):
         self.tool, self.bin = tool, pathlib.Path(binary_path)
@@ -37,7 +37,7 @@ class CoverageManager:
         """
         if self.tool in (Tool.GCC, Tool.GPP):
             env = os.environ.copy()
-            env["GCOV_PREFIX"]       = str(self.profile_dir)
+            env["GCOV_PREFIX"] = str(self.profile_dir)
             env["GCOV_PREFIX_STRIP"] = "0"
             subprocess.run([self.bin, *argv], env=env,
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
