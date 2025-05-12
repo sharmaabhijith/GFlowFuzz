@@ -16,10 +16,11 @@ from rich.progress import (
 )
 
 from GFlowFuzz.distiller_LM import Distiller, DistillerConfig
-from GFlowFuzz.instruct_LM import Instructor
-from GFlowFuzz.coder_LM import Coder
+from GFlowFuzz.instruct_LM import Instructor, InstructorConfig
+from GFlowFuzz.coder_LM import Coder, CoderConfig
 from GFlowFuzz.SUT.base_sut import base_SUT
 from GFlowFuzz.oracle import Inspector
+from GFlowFuzz.trainer.trainer import Trainer
 
 
 class Fuzzer:
@@ -30,8 +31,9 @@ class Fuzzer:
         SUT: base_SUT,
         number_of_iterations: int,
         distiller_config: DistillerConfig,
-        instructor_config, # TODO: ADD DATATYPE
-        coder_config, # TODO: ADD DATATYPE
+        instructor_config: InstructorConfig,
+        coder_config: CoderConfig,
+        trainer_config, # TODO: ADD DATATYPE
         total_time: int,
         output_folder: str,
         resume: bool = False,
@@ -63,6 +65,7 @@ class Fuzzer:
         self.instructor = Instructor(instructor_config)
         self.coder = Coder(coder_config)
         self.oracle = Inspector(self.SUT)
+        self.trainer = Trainer(config=trainer_config)
     
     def __get_resume_count(self) -> int:
         """
@@ -121,7 +124,6 @@ class Fuzzer:
                 )
                 # Generate code from the instructions using the coder
                 fos = self.coder.generate_code(prompt=instructions)
-                prev = []
                 for fo in fos:
                     _, _, reward = self.oracle.inspect(
                         fo = fo,
@@ -129,12 +131,19 @@ class Fuzzer:
                         count = self.count,
                         otf = self.otf,
                     )
-                    loss = self.oracle.compute_tb_loss(
-                        log_z_sum=log_zs,
-                        log_prob_sum=log_probs,
-                        log_reward=reward,
+                    loss_value = self.trainer.train_step(log_zs, log_probs, reward)
+                    # Add off-policy data to buffer
+                    self.trainer.ibuffer.add(
+                        states=[],
+                        actions=[],
+                        instructions=instructions,
+                        forward_logprobs=log_probs,
+                        backward_logprobs=[],
+                        final_reward=reward.item() if hasattr(reward, "item") else reward,
+                        logZ=log_zs.item() if hasattr(log_zs, "item") else log_zs
                     )
-                    loss.backward()
+                    # Perform an off-policy update
+                    self.trainer.train_off_policy(batch_size=2, steps=1)
     
     def evaluate_all(self) -> None:
         """Evaluate all generated outputs against the oracle."""

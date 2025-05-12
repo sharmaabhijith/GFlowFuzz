@@ -131,223 +131,111 @@ def base_to_lora(model):
     model.train()
 
 
-@dataclass(order=True)
-class TrajectoryWithReward:
-    response_ids: list = field(compare=False)
-    c_log_reward: float = field(compare=False)
-    lm_log_reward: float = field(compare=False)
-    log_reward: float = field(compare=True)  # sorting based on this
-    decoded_response: str = field(compare=False)
-    emb: torch.tensor = field(compare=False)
-    ref_reward: float = field(compare=False, init=False)
-
-    def __post_init__(self):
-        self.ref_reward = self.log_reward
 
 
-@dataclass(order=True)
-class TrajectoryWithCReward:
-    response_ids: list = field(compare=False)
-    c_log_reward: float = field(compare=True)  # sorting based on this
-    lm_log_reward: float = field(compare=False)
-    log_reward: float = field(compare=False)
-    decoded_response: str = field(compare=False)
-    emb: torch.tensor = field(compare=False)
-    ref_reward: float = field(compare=False, init=False)
+class InstructionBuffer:
+    """
+    Stores full trajectories intended for GFlowNet training using
+    the Trajectory Balance (TB) objective.
+    Each trajectory is represented by:
+    - states (List[Any])
+    - actions (List[Any])
+    - instructions (List[str])
+    - forward_logprobs (List[float])
+    - backward_logprobs (List[float])
+    - final_reward (float)
+    - logZ (float)
+    - c_reward (float)
+    - lm_reward (float)
+    - composite_reward (float)
+    """
 
-    def __post_init__(self):
-        self.ref_reward = self.c_log_reward
-
-
-class ReplayBuffer(object):
-    def __init__(self,  eos_token_id, max_size=1000, sim_tolerance=0.25, prioritization="c_reward", compare="reward"):
-        self.eos_token_id = eos_token_id
-        self.max_size = max_size
-        self.sim_tolerance = sim_tolerance
-        self.buffer = []
-        self.response_pool = set()
+    def __init__(self, capacity: int = 1000, prioritization: bool = False):
+        """
+        Args:
+            capacity: Maximum number of trajectories to store.
+            prioritization: Whether to prioritize buffer replacement based on composite_reward.
+        """
+        self.capacity = capacity
+        self.storage = []
+        self.pointer = 0
         self.prioritization = prioritization
-        self.compare = compare
 
-        if compare == "c_reward":
-            print("comparison with c_reward")
-            self.Trajectory = TrajectoryWithCReward
+    def add(
+        self,
+        states: List[Any],
+        actions: List[Any],
+        instructions: List[str],
+        forward_logprobs: List[float],
+        backward_logprobs: List[float],
+        final_reward: float,
+        logZ: float,
+        c_reward: float = 0.0,
+        lm_reward: float = 0.0,
+        composite_reward: float = 0.0
+    ) -> None:
+        """
+        Add a new trajectory with instructions for off-policy training.
+        """
+        trajectory = {
+            "states": states,
+            "actions": actions,
+            "instructions": instructions,
+            "f_log_probs": forward_logprobs,
+            "b_log_probs": backward_logprobs,
+            "reward": final_reward,
+            "logZ": logZ,
+            "c_reward": c_reward,
+            "lm_reward": lm_reward,
+            "composite_reward": composite_reward
+        }
+        if len(self.storage) >= self.capacity:
+            if self.prioritization:
+                # Remove lowest composite reward
+                idx = min(range(len(self.storage)), key=lambda i: self.storage[i]["composite_reward"])
+                self.storage.pop(idx)
+            else:
+                # Remove random
+                import random
+                idx = random.randint(0, len(self.storage) - 1)
+                self.storage.pop(idx)
+            self.storage.append(trajectory)
         else:
-            print("comparison with total reward")
-            self.Trajectory = TrajectoryWithReward
+            self.storage.append(trajectory)
+        self.pointer = (self.pointer + 1) % self.capacity
 
-    def size(self):
-        return len(self.buffer)
+    def sample(self, batch_size: int) -> List[dict]:
+        """
+        Sample a random batch of trajectories from the buffer.
+        Optional: Apply padding to handle variable trajectory lengths if needed.
 
-    def add(self, item):
-        # check whether the item has been already added before.
-        if item.decoded_response in self.response_pool:
+        Returns:
+            A list of trajectory dicts.
+        """
+        if len(self.storage) == 0:
+            return []
+        import random
+        batch_size = min(batch_size, len(self.storage))
+        return random.sample(self.storage, batch_size)
+
+    def size(self) -> int:
+        """Number of trajectories currently stored."""
+        return len(self.storage)
+
+    def save(self, filename: str) -> None:
+        """
+        Save buffer to file.
+        """
+        data = {"trajectories": self.storage}
+        with open(filename, "w") as f:
+            json.dump(data, f)
+
+    def load(self, filename: str) -> None:
+        """
+        Load buffer from file.
+        """
+        if not os.path.exists(filename):
             return
-        tokens = [x for x in item.response_ids.tolist() if x !=
-                  self.eos_token_id]
-        # find examples that are similar to the item and replace it with new one if new one has higher reward
-        for buffer_item in self.buffer:
-            existing_tokens = [
-                x for x in buffer_item.response_ids.tolist() if x != self.eos_token_id]
-            if editdistance.eval(tokens, existing_tokens) < (len(tokens) + len(existing_tokens)) * self.sim_tolerance:
-                if buffer_item.ref_reward >= item.ref_reward:
-                    return
-                else:
-                    # remove the old item
-                    self.response_pool.discard(buffer_item.decoded_response)
-                    self.buffer.remove(buffer_item)
-                    heapq.heapify(self.buffer)
-
-                    # add new item
-                    self.response_pool.add(item.decoded_response)
-                    heapq.heappush(self.buffer, item)
-
-                    if len(self.buffer) != len(self.response_pool):
-                        self.response_pool = set(
-                            [x.decoded_response for x in self.buffer])
-                    return
-
-        self.response_pool.add(item.decoded_response)
-
-        if len(self.buffer) < self.max_size:
-            heapq.heappush(self.buffer, item)
-        else:
-            popped = heapq.heappushpop(self.buffer, item)
-            try:
-                self.response_pool.remove(popped.decoded_response)
-            except KeyError:
-                self.response_pool = set(
-                    [x.decoded_response for x in self.buffer])
-
-    def add_batch(self, responses, decoded_responses, res_embs, c_log_rewards, lm_log_rewards, log_rewards):
-        # move tensors to cpu
-        responses = responses.cpu()
-        res_embs = res_embs.cpu()
-
-        pad_mask = (responses == self.eos_token_id).cumsum(1) > 1
-        response_lengths = torch.sum((~pad_mask).long(), 1)
-
-        for i in range(log_rewards.size(0)):
-            response_len = response_lengths[i].item()
-            # responses is padded with right-side
-            response_id = responses[i, :response_len]
-
-            c_log_reward = c_log_rewards[i].item()
-            lm_log_reward = lm_log_rewards[i].item()
-            log_reward = log_rewards[i].item()
-
-            decoded_response = decoded_responses[i]
-            emb = res_embs[i]
-            # add new item
-            item = self.Trajectory(
-                response_id,
-                c_log_reward,
-                lm_log_reward,
-                log_reward,
-                decoded_response,
-                emb)
-
-            self.add(item)
-
-    def sample(self, num_samples):
-        if self.prioritization == "reward":
-            priorities = [item.log_reward for item in self.buffer]
-            priorities = np.array(priorities)
-            priorities = priorities - np.max(priorities)
-            priorities = np.exp(priorities)
-            prob = priorities / np.sum(priorities)
-
-        elif self.prioritization == "c_reward":
-            priorities = [item.c_log_reward for item in self.buffer]
-            priorities = np.array(priorities)
-            priorities = priorities - np.max(priorities)
-            priorities = np.exp(priorities)
-            prob = priorities / np.sum(priorities)
-
-        elif self.prioritization == "uniform":
-            prob = np.ones(len(self.buffer)) / len(self.buffer)
-
-        idx = np.random.choice(
-            len(self.buffer), num_samples, p=prob, replace=False)
-
-        # right-side padding
-        response_ids = [self.buffer[i].response_ids for i in idx]
-        response_mask = [torch.ones_like(x) for x in response_ids]
-
-        response_ids = pad_sequence(
-            response_ids, batch_first=True, padding_value=self.eos_token_id)
-        response_mask = pad_sequence(
-            response_mask, batch_first=True, padding_value=0)
-
-        response_batch = {"input_ids": response_ids,
-                          "attention_mask": response_mask}
-
-        c_log_rewards = torch.tensor(
-            [self.buffer[i].c_log_reward for i in idx])
-        lm_log_rewards = torch.tensor(
-            [self.buffer[i].lm_log_reward for i in idx])
-        log_rewards = torch.tensor([self.buffer[i].log_reward for i in idx])
-
-        reward_batch = {"c_log_reward": c_log_rewards,
-                        "lm_log_reward": lm_log_rewards,
-                        "log_reward": log_rewards}
-
-        return response_batch, reward_batch
-
-    def save(self, path):
-        with gzip.open(path, "wb") as f:
-            pickle.dump(self.buffer, f)
-
-    def load(self, path):
-        with gzip.open(path, "rb") as f:
-            self.buffer = pickle.load(f)
-        heapq.heapify(self.buffer)
-
-
-class CosineRelayBuffer(ReplayBuffer):
-    def __init__(self, eos_token_id, max_size=1000, sim_tolerance=0.4, prioritization="c_reward", compare="reward"):
-        super().__init__(eos_token_id, max_size, sim_tolerance, prioritization, compare)
-
-    def add(self, item):
-        # check whether the item has been already added before.
-        if item.decoded_response in self.response_pool:
-            return
-
-        if len(self.buffer) > 0:
-            buffer_embs = torch.stack(
-                [item.emb for item in self.buffer], dim=0)  # [b,d]
-            # find examples that are similar to the item and replace it with new one if new one has higher reward
-            query = item.emb.unsqueeze(0)  # [1,d]
-            cos_sims = F.cosine_similarity(query, buffer_embs, dim=1)
-            max_id = torch.argmax(cos_sims, dim=0)
-            max_sim = cos_sims[max_id].item()
-
-            if max_sim > self.sim_tolerance:
-                buffer_item = self.buffer[max_id]
-                if buffer_item.ref_reward >= item.ref_reward:
-                    return
-                else:
-                    self.response_pool.discard(buffer_item.decoded_response)
-                    self.buffer.remove(buffer_item)
-                    heapq.heapify(self.buffer)
-
-                    # add new item
-                    self.response_pool.add(item.decoded_response)
-                    heapq.heappush(self.buffer, item)
-
-                    if len(self.buffer) != len(self.response_pool):
-                        self.response_pool = set(
-                            [x.decoded_response for x in self.buffer])
-                    return
-
-        self.response_pool.add(item.decoded_response)
-
-        if len(self.buffer) < self.max_size:
-            heapq.heappush(self.buffer, item)
-        else:
-            popped = heapq.heappushpop(self.buffer, item)
-            try:
-                self.response_pool.remove(popped.decoded_response)
-            except KeyError:
-                self.response_pool = set(
-                    [x.decoded_response for x in self.buffer])
+        with open(filename, "r") as f:
+            data = json.load(f)
+        self.storage = data.get("trajectories", [])

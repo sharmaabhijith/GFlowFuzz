@@ -1,1 +1,2 @@
-from .sampler import Instructor, InstructionBuffer
+from .sampler import Instructor
+from .utils import InstructorConfig, InstructionBuffer
