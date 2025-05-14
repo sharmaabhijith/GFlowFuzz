@@ -8,6 +8,7 @@ import os
 import math
 import time
 import torch
+import traceback
 
 from rich.traceback import install
 install()
@@ -27,6 +28,7 @@ from oracle import Inspector
 
 from .utils import TrainerConfig, FuzzerConfig
 from .checkpointer import CheckpointManager
+from GFlowFuzz.logger import GlobberLogger, LEVEL
 
 
 class Fuzzer:
@@ -84,6 +86,15 @@ class Fuzzer:
         # Initialize the fuzzing variables
         self.count = 0
         self.start_time = 0
+        self.logger = GlobberLogger("fuzzer.log", level=LEVEL.TRACE)
+        self.logger.log("Fuzzer initialized.", LEVEL.INFO)
+        self.logger.log(f"FuzzerConfig: {fuzzer_config}", LEVEL.TRACE)
+        self.logger.log(f"TrainerConfig: {trainer_config}", LEVEL.TRACE)
+        self.logger.log(f"DistillerConfig: {distiller_config}", LEVEL.TRACE)
+        self.logger.log(f"InstructorConfig: {instructor_config}", LEVEL.TRACE)
+        self.logger.log(f"CoderConfig: {coder_config}", LEVEL.TRACE)
+        self.logger.log(f"Output folder: {self.output_folder}", LEVEL.TRACE)
+        self.logger.log(f"Resume: {self.resume}, OTF: {self.otf}", LEVEL.TRACE)
         
     def __get_resume_count(self) -> int:
         """
@@ -110,98 +121,99 @@ class Fuzzer:
             return 0
 
     def __train_off_policy(self, batch_size: int = 4, steps: int = 1):
-        """
-        Performs off-policy training steps by sampling from the instruction buffer.
-
-        Args:
-            batch_size (int): Number of samples to draw from the buffer per step.
-            steps (int): Number of off-policy training steps to perform.
-        """
-        for _ in range(steps):
+        self.logger.log(f"Starting off-policy training: batch_size={batch_size}, steps={steps}", LEVEL.TRACE)
+        for step in range(steps):
             batch = self.ibuffer.sample(batch_size)
+            self.logger.log(f"Off-policy step {step}, batch: {str(batch)[:500]}", LEVEL.VERBOSE)
             if not batch:
+                self.logger.log("Off-policy batch empty, breaking.", LEVEL.TRACE)
                 break
             for t in batch:
-                # Skip samples with non-positive reward
                 if t["reward"] <= 0:
+                    self.logger.log(f"Skipping sample with non-positive reward: {t['reward']}", LEVEL.TRACE)
                     continue
                 log_prob_sum = sum(t["f_log_probs"])
                 log_z_sum = t["logZ"]
                 log_reward = math.log(t["reward"])
-                # Perform a training step using the sampled data
+                self.logger.log(f"Off-policy sample: log_prob_sum={log_prob_sum}, log_z_sum={log_z_sum}, log_reward={log_reward}", LEVEL.VERBOSE)
                 self.instructor.train_step(
                     torch.tensor(log_z_sum, device=self.instructor.device),
                     torch.tensor(log_prob_sum, device=self.instructor.device),
                     torch.tensor(log_reward, device=self.instructor.device)
                 )
-
+        self.logger.log("Off-policy training complete.", LEVEL.TRACE)
 
     def train(self) -> None:
-        """
-        Run the fuzzing process.
-
-        This method orchestrates the main fuzzing loop: generating prompts, instructions,
-        code, evaluating with the oracle, updating the buffer, and performing both
-        on-policy and off-policy training steps.
-        """
-        # Generate auto-prompt from documentation using the distiller
-        self.initial_prompt = self.distiller.generate_prompt()
-        self.prompt = self.initial_prompt
-        self.start_time = time.time()
-        with Progress(
-            TextColumn("Fuzzing • [progress.percentage]{task.percentage:>3.0f}%"),
-            BarColumn(),
-            MofNCompleteColumn(),
-            TextColumn("•"),
-            TimeElapsedColumn(),
-        ) as p:
-            task = p.add_task("Fuzzing", total=self.number_of_iterations)
-            # Resume from previous run if needed
-            self.count = self.__get_resume_count()
-            if self.resume and self.count > 0:
-                log = f" (resuming from {self.count})"
-                p.console.print(log)
-            p.update(task, advance=self.count)
-            # Main fuzzing loop
-            while (
-                self.count < self.number_of_iterations
-                ) and (
-                time.time() - self.start_time < self.total_time * 3600
-                ):
-                # Generate a sequence of instructions from the prompt
-                instructions, log_probs, log_zs = self.instructor.generate_instruction_sequence(
-                    self.prompt
-                )
-                # Generate code from the instructions using the coder
-                fos = self.coder.generate_code(prompt=instructions)
-                for fo in fos:
-                    # Evaluate the generated code using the oracle
-                    _, _, reward = self.oracle.inspect(
-                        fo = fo,
-                        output_folder = self.output_folder,
-                        count = self.count,
-                        otf = self.otf,
-                    )
-                    # Perform an on-policy training step
-                    loss_value = self.instructor.train_step(
-                        log_zs, log_probs, reward, self.max_norm
-                    )
-                    # Add off-policy data to buffer
-                    self.ibuffer.add(
-                        states=[],
-                        actions=[],
-                        instructions=instructions,
-                        forward_logprobs=log_probs,
-                        backward_logprobs=[],
-                        final_reward=reward.item() if hasattr(reward, "item") else reward,
-                        logZ=log_zs.item() if hasattr(log_zs, "item") else log_zs
-                    )
-                    # Perform an off-policy update
-                    self.__train_off_policy(batch_size=2, steps=1)
-                    # Save checkpoint every N steps (e.g., every 100 steps)
-                    if self.count % 100 == 0:
-                        self.checkpointer.save(self.count)
-                    self.count += 1
+        self.logger.log("Fuzzer training started.", LEVEL.INFO)
+        start_time = time.time()
+        try:
+            self.logger.log("Generating initial prompt using distiller...", LEVEL.TRACE)
+            self.initial_prompt = self.distiller.generate_prompt()
+            self.logger.log(f"Initial prompt: {str(self.initial_prompt)[:300]}", LEVEL.VERBOSE)
+            self.prompt = self.initial_prompt
+            self.start_time = time.time()
+            with Progress(
+                TextColumn("Fuzzing • [progress.percentage]{task.percentage:>3.0f}%"),
+                BarColumn(),
+                MofNCompleteColumn(),
+                TextColumn("•"),
+                TimeElapsedColumn(),
+            ) as p:
+                task = p.add_task("Fuzzing", total=self.number_of_iterations)
+                self.count = self.__get_resume_count()
+                if self.resume and self.count > 0:
+                    log = f" (resuming from {self.count})"
+                    p.console.print(log)
+                    self.logger.log(f"Resuming from count {self.count}", LEVEL.INFO)
+                p.update(task, advance=self.count)
+                while (
+                    self.count < self.number_of_iterations
+                    ) and (
+                    time.time() - self.start_time < self.total_time * 3600
+                    ):
+                    iter_start = time.time()
+                    self.logger.log(f"Fuzzing iteration {self.count}", LEVEL.TRACE)
+                    self.logger.log(f"Prompt for iteration: {str(self.prompt)[:300]}", LEVEL.VERBOSE)
+                    instructions, log_probs, log_zs = self.instructor.generate_instruction_sequence(self.prompt)
+                    self.logger.log(f"Instructions: {str(instructions)[:300]}", LEVEL.VERBOSE)
+                    self.logger.log(f"Log_probs: {str(log_probs)[:300]}", LEVEL.VERBOSE)
+                    self.logger.log(f"Log_zs: {str(log_zs)[:300]}", LEVEL.VERBOSE)
+                    fos = self.coder.generate_code(prompt=instructions)
+                    self.logger.log(f"Generated code samples: {str(fos)[:500]}", LEVEL.VERBOSE)
+                    for fo in fos:
+                        self.logger.log(f"Evaluating code sample: {str(fo)[:300]}", LEVEL.TRACE)
+                        _, _, reward = self.oracle.inspect(
+                            fo = fo,
+                            output_folder = self.output_folder,
+                            count = self.count,
+                            otf = self.otf,
+                        )
+                        self.logger.log(f"Reward: {reward}", LEVEL.VERBOSE)
+                        loss_value = self.instructor.train_step(
+                            log_zs, log_probs, reward, self.max_norm
+                        )
+                        self.logger.log(f"Loss value: {loss_value}", LEVEL.VERBOSE)
+                        self.ibuffer.add(
+                            states=[],
+                            actions=[],
+                            instructions=instructions,
+                            forward_logprobs=log_probs,
+                            backward_logprobs=[],
+                            final_reward=reward.item() if hasattr(reward, "item") else reward,
+                            logZ=log_zs.item() if hasattr(log_zs, "item") else log_zs
+                        )
+                        self.logger.log(f"Buffer size after add: {len(self.ibuffer)}", LEVEL.TRACE)
+                        self.__train_off_policy(batch_size=2, steps=1)
+                        if self.count % 100 == 0:
+                            self.logger.log(f"Checkpoint saved at step {self.count}", LEVEL.INFO)
+                        iter_end = time.time()
+                        self.logger.log(f"Iteration {self.count} duration: {iter_end - iter_start:.2f}s", LEVEL.TRACE)
+                        self.count += 1
+            end_time = time.time()
+            self.logger.log(f"Fuzzer training completed in {end_time - start_time:.2f}s.", LEVEL.INFO)
+        except Exception as e:
+            self.logger.log(f"Error during training: {e}\n{traceback.format_exc()}", LEVEL.INFO)
+            raise
 
 
     

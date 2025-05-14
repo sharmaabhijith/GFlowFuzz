@@ -2,6 +2,8 @@ import os
 import sys
 import click
 import yaml
+from GFlowFuzz.logger import set_global_log_dir
+import datetime
 
 from distiller_LM import DistillerConfig
 from instruct_LM import InstructorConfig
@@ -18,6 +20,11 @@ def load_yaml_config(path: str):
 @click.option("--config", default="config/main_config.yaml", help="Path to config YAML.")
 def main(main_config: str):
     main_config = load_yaml_config(main_config)
+    # Set up global log directory
+    exp_name = main_config.get("exp_name", "exp")
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_dir = os.path.join("logs", f"{exp_name}_{timestamp}")
+    set_global_log_dir(log_dir)
     
     distiller_config = DistillerConfig(
         folder=main_config["distiller"]["folder"],

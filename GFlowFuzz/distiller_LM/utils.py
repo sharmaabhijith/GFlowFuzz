@@ -5,7 +5,7 @@ import random
 import openai
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Callable
-from GFlowFuzz.utils import Logger
+from GFlowFuzz.logger import GlobberLogger
 
 openai.api_key = os.environ.get("OPENAI_API_KEY", "dummy")
 client = openai.OpenAI()
@@ -23,7 +23,7 @@ class OpenAIConfig:
 @dataclass
 class DistillerConfig:
     folder: str
-    logger: Logger
+    logger: GlobberLogger
     wrap_prompt_func: Callable[[str], str]
     validate_prompt_func: Callable[[str], float]
     prompt_components: Dict[str, str] = field(default_factory=dict)

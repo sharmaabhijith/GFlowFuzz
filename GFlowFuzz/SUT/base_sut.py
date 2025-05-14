@@ -3,7 +3,8 @@ import time
 from enum import Enum
 from typing import Any, Dict
 from rich.progress import track
-from GFlowFuzz.utils import LEVEL, Logger
+from GFlowFuzz.logger import GlobberLogger, LEVEL
+import traceback
 
 
 class FResult(Enum):
@@ -31,10 +32,8 @@ class base_SUT(object):
         self.max_length = kwargs["max_length"]
         self.device = kwargs["device"]
         # loggers
-        self.g_logger = Logger(self.folder, "log_generation.txt", level=kwargs["level"])
-        self.v_logger = Logger(self.folder, "log_validation.txt", level=kwargs["level"])
-        # main logger for system messages
-        self.m_logger = Logger(self.folder, "log.txt")
+        self.logger = GlobberLogger("sut.log", level=kwargs.get("level", LEVEL.INFO))
+        self.logger.log("base_SUT initialized.", LEVEL.INFO)
         self.prompt_used = None
         
 
@@ -72,26 +71,38 @@ class base_SUT(object):
 
     # each target defines their way of validating prompts (can overwrite)
     def validate_prompt(self, prompt: str):
-        fos = self.coder.generate(
-            prompt,
-            batch_size=self.batch_size,
-            temperature=self.temperature,
-            max_length=self.max_length,
-        )
-        unique_set = set()
-        score = 0
-        for fo in fos:
-            code = self.prompt_used["begin"] + "\n" + fo
-            wb_file = self.write_back_file(code)
-            result, _ = self.validate_individual(wb_file)
-            if (
-                result == FResult.SAFE
-                and self.filter(code)
-                and self.clean_code(code) not in unique_set
-            ):
-                unique_set.add(self.clean_code(code))
-                score += 1
-        return score
+        self.logger.log(f"validate_prompt called with prompt: {str(prompt)[:200]}", LEVEL.TRACE)
+        start_time = time.time()
+        try:
+            fos = self.coder.generate(
+                prompt,
+                batch_size=self.batch_size,
+                temperature=self.temperature,
+                max_length=self.max_length,
+            )
+            self.logger.log(f"Generated {len(fos)} code samples for validation. First sample: {str(fos[0])[:200] if fos else 'None'}", LEVEL.VERBOSE)
+            unique_set = set()
+            score = 0
+            for fo in fos:
+                code = self.prompt_used["begin"] + "\n" + fo
+                self.logger.log(f"Validating code: {str(code)[:200]}", LEVEL.TRACE)
+                wb_file = self.write_back_file(code)
+                self.logger.log(f"Wrote code to file: {wb_file}", LEVEL.TRACE)
+                result, _ = self.validate_individual(wb_file)
+                self.logger.log(f"Validation result: {result}", LEVEL.TRACE)
+                if (
+                    result == FResult.SAFE
+                    and self.filter(code)
+                    and self.clean_code(code) not in unique_set
+                ):
+                    unique_set.add(self.clean_code(code))
+                    score += 1
+            end_time = time.time()
+            self.logger.log(f"validate_prompt completed in {end_time - start_time:.2f}s, score: {score}", LEVEL.TRACE)
+            return score
+        except Exception as e:
+            self.logger.log(f"Error during validate_prompt: {e}\n{traceback.format_exc()}", LEVEL.INFO)
+            raise
 
     # helper for updating
     def filter(self, code: str) -> bool:
@@ -111,32 +122,31 @@ class base_SUT(object):
         raise NotImplementedError
 
     def parse_validation_message(self, f_result, message, file_name):
-        # TODO: rewrite to include only status in TRACE but full message in VERBOSE
-        self.v_logger.logo("Validating {} ...".format(file_name), LEVEL.TRACE)
+        self.logger.log(f"Validating {file_name} ...", LEVEL.TRACE)
+        self.logger.log(f"Validation message: {str(message)[:200]}", LEVEL.VERBOSE)
         if f_result == FResult.SAFE:
-            self.v_logger.logo("{} is safe".format(file_name), LEVEL.VERBOSE)
+            self.logger.log(f"{file_name} is safe", LEVEL.VERBOSE)
         elif f_result == FResult.FAILURE:
-            self.v_logger.logo(
-                "{} failed validation with error message: {}".format(
-                    file_name, message, LEVEL.VERBOSE
-                )
-            )
+            self.logger.log(f"{file_name} failed validation with error message: {message}", LEVEL.VERBOSE)
         elif f_result == FResult.ERROR:
-            self.v_logger.logo(
-                "{} has potential error!\nerror message:\n{}".format(
-                    file_name, message, LEVEL.VERBOSE
-                )
-            )
-            self.m_logger.logo(
-                "{} has potential error!".format(file_name, message, LEVEL.INFO)
-            )
+            self.logger.log(f"{file_name} has potential error!\nerror message:\n{message}", LEVEL.VERBOSE)
+            self.logger.log(f"{file_name} has potential error!", LEVEL.INFO)
         elif f_result == FResult.TIMED_OUT:
-            self.v_logger.logo("{} timed out".format(file_name), LEVEL.VERBOSE)
+            self.logger.log(f"{file_name} timed out", LEVEL.VERBOSE)
 
     def validate_all(self):
-        for fuzz_output in track(
-            glob.glob(self.folder + "/*.fuzz"),
-            description="Validating",
-        ):
-            f_result, message = self.validate_individual(fuzz_output)
-            self.parse_validation_message(f_result, message, fuzz_output)
+        self.logger.log(f"validate_all called for folder: {self.folder}", LEVEL.TRACE)
+        start_time = time.time()
+        try:
+            for fuzz_output in track(
+                glob.glob(self.folder + "/*.fuzz"),
+                description="Validating",
+            ):
+                self.logger.log(f"Validating fuzz output: {fuzz_output}", LEVEL.TRACE)
+                f_result, message = self.validate_individual(fuzz_output)
+                self.parse_validation_message(f_result, message, fuzz_output)
+            end_time = time.time()
+            self.logger.log(f"validate_all completed in {end_time - start_time:.2f}s", LEVEL.TRACE)
+        except Exception as e:
+            self.logger.log(f"Error during validate_all: {e}\n{traceback.format_exc()}", LEVEL.INFO)
+            raise

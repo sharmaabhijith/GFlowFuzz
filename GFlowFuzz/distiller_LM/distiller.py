@@ -1,9 +1,11 @@
 import os
 from typing import List, Dict, Any, Callable, Optional, Tuple
 from rich.progress import track
+import time
+import traceback
 
 from GFlowFuzz.distiller_LM.utils import OpenAIConfig, DistillerConfig, request_engine
-from GFlowFuzz.utils import LEVEL, Logger
+from GFlowFuzz.logger import GlobberLogger, LEVEL
 
 
 
@@ -29,7 +31,8 @@ class Distiller:
             instruction: Instruction for auto-prompting
         """
         self.folder = distiller_config.folder
-        self.logger = distiller_config.logger
+        self.logger = GlobberLogger("distiller.log", level=LEVEL.INFO)
+        self.logger.log("Distiller initialized.", LEVEL.INFO)
         self.wrap_prompt = distiller_config.wrap_prompt_func
         self.validate_prompt = distiller_config.validate_prompt_func
         self.prompt_components = distiller_config.prompt_components
@@ -76,58 +79,71 @@ class Distiller:
         Returns:
             Best prompt based on validation score
         """
-        # If we have already done auto-prompting, just return the best prompt
-        if os.path.exists(self.folder + "/prompts/best_prompt.txt"):
-            self.logger.logo("Use existing prompt ... ", level=LEVEL.INFO)
-            with open(
-                self.folder + "/prompts/best_prompt.txt", "r", encoding="utf-8"
-            ) as f:
-                return f.read()
-        self.logger.logo("Use auto-prompting prompt ... ", level=LEVEL.INFO)
-        # First run with temperature 0.0 to get the greedy prompt
-        config = self.openai_config(
-            {},
-            self._create_auto_prompt_message(message),
-            max_tokens=max_tokens,
-            temperature=0.0,
-            engine_name=self.engine_name,
-        )
-        response = request_engine(config)
-        greedy_prompt = self.wrap_prompt(response.choices[0].message.content)
-        with open(
-            self.folder + "/prompts/greedy_prompt.txt", "w", encoding="utf-8"
-        ) as f:
-            f.write(greedy_prompt)   
-        # Evaluate the greedy prompt
-        best_prompt, best_score = greedy_prompt, self.validate_prompt(greedy_prompt)
-        with open(self.folder + "/prompts/scores.txt", "a") as f:
-            f.write(f"greedy score: {str(best_score)}")
-        # Generate additional prompt samples with temperature 1.0
-        for i in track(range(num_samples), description="Generating prompts..."):
+        self.logger.log(f"generate_prompt called with message: {str(message)[:200]}, num_samples: {num_samples}, max_tokens: {max_tokens}", LEVEL.TRACE)
+        start_time = time.time()
+        try:
+            if os.path.exists(self.folder + "/prompts/best_prompt.txt"):
+                self.logger.log("Use existing prompt ... ", level=LEVEL.INFO)
+                with open(
+                    self.folder + "/prompts/best_prompt.txt", "r", encoding="utf-8"
+                ) as f:
+                    best_prompt = f.read()
+                self.logger.log(f"Loaded best_prompt.txt: {str(best_prompt)[:300]}", LEVEL.VERBOSE)
+                return best_prompt
+            self.logger.log("Use auto-prompting prompt ... ", level=LEVEL.INFO)
             config = self.openai_config(
                 {},
                 self._create_auto_prompt_message(message),
                 max_tokens=max_tokens,
-                temperature=1.0,
+                temperature=0.0,
                 engine_name=self.engine_name,
             )
+            self.logger.log(f"OpenAI config for greedy prompt: {str(config)[:300]}", LEVEL.TRACE)
             response = request_engine(config)
-            prompt = self.wrap_prompt(response.choices[0].message.content)
+            self.logger.log(f"Greedy prompt API response: {str(response)[:300]}", LEVEL.TRACE)
+            greedy_prompt = self.wrap_prompt(response.choices[0].message.content)
+            self.logger.log(f"Greedy prompt: {str(greedy_prompt)[:300]}", LEVEL.VERBOSE)
             with open(
-                self.folder + "/prompts/prompt_{}.txt".format(i),
-                "w", encoding="utf-8"
+                self.folder + "/prompts/greedy_prompt.txt", "w", encoding="utf-8"
             ) as f:
-                f.write(prompt)   
-            # Evaluate this prompt
-            score = self.validate_prompt(prompt)
-            if score > best_score:
-                best_score = score
-                best_prompt = prompt    
-            # Record the score
+                f.write(greedy_prompt)   
+            best_prompt, best_score = greedy_prompt, self.validate_prompt(greedy_prompt)
+            self.logger.log(f"Greedy prompt score: {best_score}", LEVEL.TRACE)
             with open(self.folder + "/prompts/scores.txt", "a") as f:
-                f.write(f"\n{i} prompt score: {str(score)}")
-        # Save the best prompt
-        with open(self.folder + "/prompts/best_prompt.txt", "w", encoding="utf-8") as f:
-            f.write(best_prompt)
-
-        return best_prompt
+                f.write(f"greedy score: {str(best_score)}")
+            for i in track(range(num_samples), description="Generating prompts..."):
+                self.logger.log(f"Generating sample prompt {i}", LEVEL.TRACE)
+                config = self.openai_config(
+                    {},
+                    self._create_auto_prompt_message(message),
+                    max_tokens=max_tokens,
+                    temperature=1.0,
+                    engine_name=self.engine_name,
+                )
+                self.logger.log(f"OpenAI config for sample {i}: {str(config)[:300]}", LEVEL.TRACE)
+                response = request_engine(config)
+                self.logger.log(f"Sample {i} API response: {str(response)[:300]}", LEVEL.TRACE)
+                prompt = self.wrap_prompt(response.choices[0].message.content)
+                self.logger.log(f"Sample {i} prompt: {str(prompt)[:300]}", LEVEL.VERBOSE)
+                with open(
+                    self.folder + "/prompts/prompt_{}.txt".format(i),
+                    "w", encoding="utf-8"
+                ) as f:
+                    f.write(prompt)   
+                score = self.validate_prompt(prompt)
+                self.logger.log(f"Sample {i} score: {score}", LEVEL.TRACE)
+                if score > best_score:
+                    best_score = score
+                    best_prompt = prompt    
+                    self.logger.log(f"Sample {i} is new best prompt.", LEVEL.INFO)
+                with open(self.folder + "/prompts/scores.txt", "a") as f:
+                    f.write(f"\n{i} prompt score: {str(score)}")
+            with open(self.folder + "/prompts/best_prompt.txt", "w", encoding="utf-8") as f:
+                f.write(best_prompt)
+            end_time = time.time()
+            self.logger.log(f"Prompt generation complete in {end_time - start_time:.2f}s. Best score: {best_score}", LEVEL.INFO)
+            self.logger.log(f"Best prompt: {str(best_prompt)[:300]}", LEVEL.VERBOSE)
+            return best_prompt
+        except Exception as e:
+            self.logger.log(f"Error during prompt generation: {e}\n{traceback.format_exc()}", LEVEL.INFO)
+            raise

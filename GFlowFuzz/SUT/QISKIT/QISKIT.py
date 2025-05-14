@@ -6,9 +6,11 @@ from enum import Enum
 from multiprocessing import Process
 from threading import Timer
 from typing import List, Tuple, Union
+import time
+import traceback
 
 from GFlowFuzz.SUT.base_sut import FResult, base_SUT
-from GFlowFuzz.utils import LEVEL
+from GFlowFuzz.logger import GlobberLogger, LEVEL
 from GFlowFuzz.oracle.coverage import CoverageManager, Tool
 import pathlib
 
@@ -83,6 +85,8 @@ qc = transpile(qc, optimization_level=3)
 class Qiskit_SUT(base_SUT):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.logger = GlobberLogger("qiskit_sut.log", level=kwargs.get("level", LEVEL.INFO))
+        self.logger.log("Qiskit_SUT initialized.", LEVEL.INFO)
         self.SYSTEM_MESSAGE = "You are a Qiskit Fuzzer"
         if kwargs["template"] == "fuzzing_with_config_file":
             config_dict = kwargs["config_dict"]
@@ -193,127 +197,121 @@ class Qiskit_SUT(base_SUT):
             f.write(content)
 
     def validate_individual(self, filepath: str) -> Tuple[FResult, str, float]:
-        """Apply the oracle to define whether the input is valid or not."""
-        self.v_logger.logo("--------------------------", level=LEVEL.VERBOSE)
-
-        # check if it can be parsed
-        parser_result, parser_msg = self._validate_static(filepath)
-        if parser_result != FResult.SAFE:
-            # try to recover from the parser error by removing the last line
-            self._delete_last_line_inplace(filepath)
-            # try to parse again
+        self.logger.log(f"validate_individual called with filepath: {filepath}", LEVEL.TRACE)
+        start_time = time.time()
+        try:
+            self.logger.log("--------------------------", level=LEVEL.VERBOSE)
             parser_result, parser_msg = self._validate_static(filepath)
+            self.logger.log(f"Static validation result: {parser_result}, message: {str(parser_msg)[:200]}", LEVEL.TRACE)
             if parser_result != FResult.SAFE:
-                return parser_result, parser_msg, 0.0
-
-        # check if the config_dict attribute exists
-        if hasattr(self, "config_dict"):
-            target = self.config_dict["target"]
-            oracle = target["oracle"]
-            if oracle == "crash":
-                fresult, msg = self._validate_with_crash_oracle(filepath)
-            elif oracle == "diff":
-                fresult, msg = self._validate_with_diff_opt_levels(filepath)
-            elif oracle == "metamorphic":
-                fresult, msg = self._validate_with_QASM_roundtrip(filepath)
-            elif oracle == "opt_and_qasm":
-                fresult, msg = self._validate_any_circuit(filepath)
+                self.logger.log("Parser not SAFE, attempting recovery by deleting last line and retrying.", LEVEL.TRACE)
+                self._delete_last_line_inplace(filepath)
+                parser_result, parser_msg = self._validate_static(filepath)
+                self.logger.log(f"Recovery static validation result: {parser_result}, message: {str(parser_msg)[:200]}", LEVEL.TRACE)
+                if parser_result != FResult.SAFE:
+                    self.logger.log(f"Static validation failed after recovery. Returning. Message: {parser_msg}", LEVEL.INFO)
+                    return parser_result, parser_msg, 0.0
+            if hasattr(self, "config_dict"):
+                target = self.config_dict["target"]
+                oracle = target["oracle"]
+                self.logger.log(f"Oracle selected: {oracle}", LEVEL.TRACE)
+                if oracle == "crash":
+                    fresult, msg = self._validate_with_crash_oracle(filepath)
+                elif oracle == "diff":
+                    fresult, msg = self._validate_with_diff_opt_levels(filepath)
+                elif oracle == "metamorphic":
+                    fresult, msg = self._validate_with_QASM_roundtrip(filepath)
+                elif oracle == "opt_and_qasm":
+                    fresult, msg = self._validate_any_circuit(filepath)
+                else:
+                    self.logger.log(f"Unknown oracle: {oracle}, defaulting to crash oracle.", LEVEL.INFO)
+                    fresult, msg = self._validate_with_crash_oracle(filepath)
             else:
+                self.logger.log("No config_dict found, defaulting to crash oracle.", LEVEL.INFO)
                 fresult, msg = self._validate_with_crash_oracle(filepath)
-        else:
-            fresult, msg = self._validate_with_crash_oracle(filepath)
-
-        self.coverage_manager.run_once()
-        new_cov = self.coverage_manager.update_total()
-        coverage_diff = new_cov - self.prev_coverage
-        bug = 1 if fresult in (FResult.FAILURE, FResult.ERROR) else 0
-        reward = coverage_diff + self.lambda_ * new_cov + self.beta1_ * bug
-        self.prev_coverage = new_cov
-        if fresult == FResult.SAFE:
-            return FResult.SAFE, f"{msg}\nCoverage: {new_cov}", reward
-        elif fresult == FResult.ERROR:
-            return FResult.ERROR, f"{msg}\nCoverage: {new_cov}", reward
-        elif fresult == FResult.TIMED_OUT:
-            return FResult.ERROR, f"timed out\nCoverage: {new_cov}", reward
-        elif fresult == FResult.FAILURE:
-            return FResult.FAILURE, f"{msg}\nCoverage: {new_cov}", reward
-        else:
-            return (FResult.TIMED_OUT, f"Coverage: {new_cov}", reward)
+            self.coverage_manager.run_once()
+            new_cov = self.coverage_manager.update_total()
+            coverage_diff = new_cov - self.prev_coverage
+            bug = 1 if fresult in (FResult.FAILURE, FResult.ERROR) else 0
+            reward = coverage_diff + self.lambda_ * new_cov + self.beta1_ * bug
+            self.logger.log(f"Coverage: new={new_cov}, prev={self.prev_coverage}, diff={coverage_diff}, bug={bug}, reward={reward}", LEVEL.TRACE)
+            self.prev_coverage = new_cov
+            if fresult == FResult.SAFE:
+                result = (FResult.SAFE, f"{msg}\nCoverage: {new_cov}", reward)
+            elif fresult == FResult.ERROR:
+                result = (FResult.ERROR, f"{msg}\nCoverage: {new_cov}", reward)
+            elif fresult == FResult.TIMED_OUT:
+                result = (FResult.ERROR, f"timed out\nCoverage: {new_cov}", reward)
+            elif fresult == FResult.FAILURE:
+                result = (FResult.FAILURE, f"{msg}\nCoverage: {new_cov}", reward)
+            else:
+                result = (FResult.TIMED_OUT, f"Coverage: {new_cov}", reward)
+            end_time = time.time()
+            self.logger.log(f"validate_individual completed in {end_time - start_time:.2f}s, result: {result[0]}, message: {str(result[1])[:200]}, reward: {result[2]}", LEVEL.TRACE)
+            return result
+        except Exception as e:
+            self.logger.log(f"Error during validate_individual: {e}\n{traceback.format_exc()}", LEVEL.INFO)
+            raise
 
     def _validate_with_diff_opt_levels(self, filepath: str) -> Tuple[FResult, str]:
-        """Validate the input with different optimization levels.
-
-        It runs the same programs with two different
-        compilation levels. If the outputs are the same, then the program is
-        valid. If one of the two crashes, then there is a problem (crash
-        oracle).
-        """
-
-        # ORACLE: two optimization levels
-        # 0: no optimization
-        # 3: full optimization
-        OPT_LEVELS_SNIPPETS = [
-            Snippet.TRANSPILE_QC_OPT_LVL_0,
-            Snippet.TRANSPILE_QC_OPT_LVL_3,
-        ]
-
-        program_content = open(filepath, "r", encoding="utf-8").read()
-
-        # fake execution
-        self.v_logger.logo(f"python {filepath}:")
-        self.v_logger.logo("\n" + program_content)
-        self.v_logger.logo("-" * 20)
-
-        # check that it contains a circuit " qc."
-        if "qc." not in program_content:
-            return FResult.FAILURE, "no circuit `qc.` found"
-
-        # check that the code can be transpiled
-        # create two variants of the programs with different opt. levels
-        # run the two programs with a timeout
-        # if one of them times out, then we return an error
-        exit_codes = {}
-        for lvl, opt_level_snippet in zip([0, 3], OPT_LEVELS_SNIPPETS):
-            exit_codes[opt_level_snippet] = None
-            # store the program in a temporary file
-            new_filename = f"/tmp/temp{self.CURRENT_TIME}_lvl_{lvl}.py"
-            i_content = program_content + "\n" + str(opt_level_snippet.value)
-            with open(new_filename, "w", encoding="utf-8") as f:
-                f.write(i_content)
-                f.close()
-            try:
-                cmd = f"python {new_filename}"
-                exit_code = subprocess.run(
-                    cmd,
-                    shell=True,
-                    capture_output=True,
-                    encoding="utf-8",
-                    timeout=15,
-                    text=True,
-                )
-                exit_codes[opt_level_snippet] = exit_code
-                self.v_logger.logo(f"Execution result: {exit_code}")
-            except ValueError as e:
-                self._kill_program(filepath)
-                return FResult.FAILURE, f"ValueError: {str(e)}"
-            except subprocess.TimeoutExpired:
-                # kill program
-                self._kill_program(filepath)
-                return FResult.TIMED_OUT, f"timed out for opt level {str(lvl)}"
-
-        for opt_level in OPT_LEVELS_SNIPPETS:
-            if exit_codes[opt_level] is None:
-                return (
-                    FResult.ERROR,
-                    f"no exit code found for opt level {str(opt_level)}",
-                )
-
-        # raise an error if the two programs have different outputs
-        if exit_codes[0].stdout != exit_codes[3].stdout:
-            return FResult.ERROR, "different outputs"
-
-        # if the two programs have the same output, then we return SAFE
-        return FResult.SAFE, "its safe"
+        self.logger.log(f"_validate_with_diff_opt_levels called with filepath: {filepath}", LEVEL.TRACE)
+        start_time = time.time()
+        try:
+            program_content = open(filepath, "r", encoding="utf-8").read()
+            self.logger.log(f"python {filepath}:", level=LEVEL.TRACE)
+            self.logger.log("\n" + program_content[:300], level=LEVEL.VERBOSE)
+            self.logger.log("-" * 20, level=LEVEL.TRACE)
+            if "qc." not in program_content:
+                self.logger.log("No circuit `qc.` found in program_content.", LEVEL.TRACE)
+                return FResult.FAILURE, "no circuit `qc.` found"
+            OPT_LEVELS_SNIPPETS = [
+                Snippet.TRANSPILE_QC_OPT_LVL_0,
+                Snippet.TRANSPILE_QC_OPT_LVL_3,
+            ]
+            exit_codes = {}
+            for lvl, opt_level_snippet in zip([0, 3], OPT_LEVELS_SNIPPETS):
+                exit_codes[opt_level_snippet] = None
+                new_filename = f"/tmp/temp{self.CURRENT_TIME}_lvl_{lvl}.py"
+                i_content = program_content + "\n" + str(opt_level_snippet.value)
+                with open(new_filename, "w", encoding="utf-8") as f:
+                    f.write(i_content)
+                try:
+                    cmd = f"python {new_filename}"
+                    self.logger.log(f"Running subprocess: {cmd}", LEVEL.TRACE)
+                    exit_code = subprocess.run(
+                        cmd,
+                        shell=True,
+                        capture_output=True,
+                        encoding="utf-8",
+                        timeout=15,
+                        text=True,
+                    )
+                    exit_codes[opt_level_snippet] = exit_code
+                    self.logger.log(f"Execution result: {exit_code}", level=LEVEL.VERBOSE)
+                except ValueError as e:
+                    self._kill_program(filepath)
+                    self.logger.log(f"ValueError during subprocess: {e}", LEVEL.INFO)
+                    return FResult.FAILURE, f"ValueError: {str(e)}"
+                except subprocess.TimeoutExpired:
+                    self._kill_program(filepath)
+                    self.logger.log(f"TimeoutExpired for opt level {lvl}", LEVEL.INFO)
+                    return FResult.TIMED_OUT, f"timed out for opt level {str(lvl)}"
+            for opt_level in OPT_LEVELS_SNIPPETS:
+                if exit_codes[opt_level] is None:
+                    self.logger.log(f"No exit code found for opt level {opt_level}", LEVEL.INFO)
+                    return (
+                        FResult.ERROR,
+                        f"no exit code found for opt level {str(opt_level)}",
+                    )
+            if exit_codes[0].stdout != exit_codes[3].stdout:
+                self.logger.log("Different outputs for opt levels 0 and 3.", LEVEL.INFO)
+                return FResult.ERROR, "different outputs"
+            end_time = time.time()
+            self.logger.log(f"_validate_with_diff_opt_levels completed in {end_time - start_time:.2f}s", LEVEL.TRACE)
+            return FResult.SAFE, "its safe"
+        except Exception as e:
+            self.logger.log(f"Error during _validate_with_diff_opt_levels: {e}\n{traceback.format_exc()}", LEVEL.INFO)
+            raise
 
     def _validate_with_crash_oracle(self, filepath: str) -> Tuple[FResult, str]:
         """Check whether the transpiler returns an exception or not.
@@ -332,7 +330,7 @@ class Qiskit_SUT(base_SUT):
                 timeout=5,
                 text=True,
             )
-            self.v_logger.logo(f"Execution result: {exit_code}")
+            self.logger.log(f"Execution result: {exit_code}", level=LEVEL.VERBOSE)
             if exit_code.returncode == 0:
                 return FResult.SAFE, "its safe"
             else:
@@ -367,7 +365,7 @@ class Qiskit_SUT(base_SUT):
                 timeout=5,
                 text=True,
             )
-            self.v_logger.logo(f"Execution result: {exit_code}")
+            self.logger.log(f"Execution result: {exit_code}", level=LEVEL.VERBOSE)
             if exit_code.returncode == 0:
                 return FResult.SAFE, "its safe"
             else:
@@ -403,7 +401,7 @@ class Qiskit_SUT(base_SUT):
                 timeout=5,
                 text=True,
             )
-            self.v_logger.logo(f"Execution result: {exit_code}")
+            self.logger.log(f"Execution result: {exit_code}", level=LEVEL.VERBOSE)
             if exit_code.returncode == 0:
                 return FResult.SAFE, "its safe"
             else:
