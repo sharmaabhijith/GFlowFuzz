@@ -1,19 +1,23 @@
 from dataclasses import dataclass
 from typing import Dict, Any
+from SUT import SUTConfig
 
 @dataclass
 class FuzzerConfig:
+    SUT: SUTConfig
     number_of_iterations: int
     total_time: int
     output_folder: str
     resume: bool = False
     otf: bool = False
+    log_level: int
 
 @dataclass
 class TrainerConfig:
     """Configuration for the Fuzzing Trainer"""
+    device: str
     # Model arguments
-    model_name: str
+    batch_size: int
     sft_ckpt: str
     # Training arguments
     train_steps: int

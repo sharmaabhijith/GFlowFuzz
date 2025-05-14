@@ -1,0 +1,75 @@
+# Configuration file for the main script
+# This file contains detailed configurations for all LM modules and other required settings.
+
+distiller:
+  folder: "distiller_outputs"       # Directory for distiller prompts
+  openai_config: 
+    engine_name: "gpt-3.5-turbo"
+    max_tokens: 100
+    temperature: 0.7
+    stop: null
+    top_p: 1.0
+  system_message: "You are an auto-prompting tool"
+  instruction: "Summarize the documentation to describe the target."
+
+instructor:
+  engine_name: "gpt2"               # Model name for the instructor
+  tokenizer: "gpt2"                 # Tokenizer name for the instructor
+  instruction_template: "Generate the next instruction:"  # Template for instructions
+  separator: "\n\n"                 # Separator for instructions
+  max_instructions: 10              # Maximum number of instructions in a sequence
+  temperature: 1.0                  # Sampling temperature for instructions
+  max_len: 50                       # Maximum length of each instruction
+
+coder:
+  engine_name: "bigcode/starcoder"  # Name of the coder model
+  temperature: 1                    # Sampling temperature for generation by the main Coder LM
+  eos: ""
+  max_length: 1024                  # Maximum length of generated code by the main Coder LM
+
+# SUT configuration moved to its own top-level section for clarity
+SUT:
+  language: "c"                   # Programming language of the target
+  path_documentation: "config/documentation/c/c_std.md"  # Path to documentation for the target
+  path_example_code: null         # Path to example code (if any)
+  trigger_to_generate_input: "/* Please create a short program which uses new C features in a complex way */"  # Trigger string for generating input
+  input_hint: "#include <stdlib.h>"  # Hint for input generation
+  SUT_string: ""                  # Description of the target (e.g. API name for prompt construction)
+  # New fields from SUTConfig
+  timeout: 10                     # Timeout for SUT operations (e.g., validation)
+  folder: "fuzz_outputs"          # Folder for SUT related outputs (e.g., temporary files, fuzz files)
+  batch_size: 1                   # Batch size for code generation during SUT validation steps
+  temperature: 0.8                # Temperature for code generation during SUT validation steps
+  max_length: 1024                # Max length for code generation during SUT validation steps
+  device: "cuda"                  # Device for SUT operations (if specific, e.g. model inference within SUT)
+  log_level: "INFO"               # Logging level for SUT specific logs (INFO, TRACE, VERBOSE)
+  path_hand_written_prompt: null  # Optional path to a hand-written prompt component
+  template: "fuzzing_with_config_file" # Template name for prompt creation strategy
+  lambda_hyper: 0.1               # Hyperparameter lambda for reward calculation
+  beta1_hyper: 1.0                # Hyperparameter beta1 for reward calculation
+  special_eos: null               # Special End-Of-Sequence token for certain SUTs (e.g., SMT, GO)
+  oracle_type: "opt_and_qasm"     # Oracle type for SUT validation (e.g., "crash", "diff", "metamorphic", "opt_and_qasm" for Qiskit)
+
+fuzzer:
+  # SUT block removed from here as it's now top-level
+  number_of_iterations: 10
+  total_time: 1
+  output_folder: "logs"             # General output folder for the fuzzer (distinct from SUT.folder)
+  resume: false
+  otf: false
+  log_level: 1                      # Logging level for the Fuzzer component (maps to INFO, TRACE, VERBOSE int enum)
+
+trainer:
+  batch_size: 1                     # Batch size for training the Coder LM
+  device: "cuda"                    # Device to run the Coder LM training
+  sft_ckpt: "checkpoint"
+  train_steps: 1000
+  grad_acc_steps: 1
+  lr: 1e-4
+  max_norm: 1.0
+  num_warmup_steps: 10
+  lora_r: 8
+  lora_alpha: 32
+  lora_dropout: 0.1
+  buffer_size: 100
+  prioritization: true

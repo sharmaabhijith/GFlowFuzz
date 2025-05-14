@@ -6,11 +6,11 @@ from transformers import (
     AutoTokenizer,
     StoppingCriteriaList,
 )
-from coder_LM.utils import EndOfFunctionCriteria, CoderConfig
+from coder_LM.utils import EndOfFunctionCriteria
 from GFlowFuzz.logger import GlobberLogger, LEVEL
 import time
 import traceback
-
+from utils import CoderConfig
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"  # disable warning
 EOF_STRINGS = ["<|endoftext|>", "###"]
@@ -22,9 +22,9 @@ class BaseCoder:
         coder_config: CoderConfig, 
     ):
         self.device = coder_config.device
-        self.tokenizer = AutoTokenizer.from_pretrained(coder_config.coder_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(coder_config.engine_name)
         self.model = AutoModelForCausalLM.from_pretrained(
-            coder_config.coder_name,
+            coder_config.engine_name,
             torch_dtype=torch.bfloat16,
         ).to(coder_config.device)
         self.eos = EOF_STRINGS + coder_config.eos

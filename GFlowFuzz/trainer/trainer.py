@@ -23,10 +23,10 @@ from rich.progress import (
 from distiller_LM import Distiller, DistillerConfig
 from instruct_LM import Instructor, InstructorConfig, InstructionBuffer
 from coder_LM import Coder, CoderConfig
-from SUT import base_SUT
+from SUT import make_SUT
 from oracle import Inspector
 
-from .utils import TrainerConfig, FuzzerConfig
+from .utils import TrainerConfig, FuzzerConfig, SUTConfig
 from .checkpointer import CheckpointManager
 from GFlowFuzz.logger import GlobberLogger, LEVEL
 
@@ -36,7 +36,7 @@ class Fuzzer:
 
     def __init__(
         self,
-        SUT: base_SUT,
+        SUT_config: SUTConfig,
         fuzzer_config: FuzzerConfig,
         distiller_config: DistillerConfig,
         instructor_config: InstructorConfig,
@@ -54,7 +54,7 @@ class Fuzzer:
             coder_config (CoderConfig): Configuration for the coder module.
             trainer_config (TrainerConfig): Configuration for training parameters.
         """
-        self.SUT = SUT
+        self.SUT = make_SUT(SUT_config)
         self.number_of_iterations = fuzzer_config.number_of_iterations
         self.total_time = fuzzer_config.total_time
         self.output_folder = fuzzer_config.output_folder
@@ -64,9 +64,9 @@ class Fuzzer:
         # Create output folder if it doesn't exist
         os.makedirs(self.output_folder, exist_ok=True)
         # Initialize the 3 modules of the framework
-        self.distiller = Distiller(distiller_config)
-        self.instructor = Instructor(instructor_config)
         self.coder = Coder(coder_config)
+        self.distiller = Distiller(distiller_config, self.coder, self.SUT)
+        self.instructor = Instructor(instructor_config)
         self.oracle = Inspector(self.SUT)
         self.ibuffer = InstructionBuffer(
             max_size=trainer_config.buffer_size,

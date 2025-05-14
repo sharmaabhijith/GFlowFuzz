@@ -6,6 +6,7 @@ from typing import List, Union
 import torch
 
 from GFlowFuzz.SUT.base_sut import FResult, base_SUT
+from GFlowFuzz.SUT.utils import SUTConfig
 from GFlowFuzz.utils import LEVEL, comment_remover
 from GFlowFuzz.oracle.coverage import CoverageManager, Tool
 import pathlib
@@ -18,20 +19,14 @@ return 0;
 
 
 class CPP_SUT(base_SUT):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, sut_config: SUTConfig):
+        super().__init__(sut_config)
         self.SYSTEM_MESSAGE = "You are a C++ Fuzzer"
-        if kwargs["template"] == "fuzzing_with_config_file":
-            config_dict = kwargs["config_dict"]
-            self.prompt_used = self._create_prompt_from_config(config_dict)
-            self.config_dict = config_dict
-        else:
-            raise NotImplementedError
-
+        self.prompt_used = self._create_prompt_from_config(sut_config)
         self.coverage_manager = CoverageManager(Tool.GPP, pathlib.Path(f"/tmp/out{self.CURRENT_TIME}"))
         self.prev_coverage = 0
-        self.lambda_ = kwargs.get("lambda_", 0.1)
-        self.beta1_ = kwargs.get("beta1_", 1.0)
+        self.lambda_ = sut_config.lambda_hyper
+        self.beta1_ = sut_config.beta1_hyper
 
     def write_back_file(self, code):
         try:

@@ -1,5 +1,3 @@
-from typing import List
-from dataclasses import fields
 from .starcoder import StarCoder
 from .deepseek import DeepSeekCoder
 from .utils import CoderConfig

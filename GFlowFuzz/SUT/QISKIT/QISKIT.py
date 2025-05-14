@@ -10,6 +10,7 @@ import time
 import traceback
 
 from GFlowFuzz.SUT.base_sut import FResult, base_SUT
+from GFlowFuzz.SUT.utils import SUTConfig
 from GFlowFuzz.logger import GlobberLogger, LEVEL
 from GFlowFuzz.oracle.coverage import CoverageManager, Tool
 import pathlib
@@ -83,22 +84,20 @@ qc = transpile(qc, optimization_level=3)
 
 
 class Qiskit_SUT(base_SUT):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.logger = GlobberLogger("qiskit_sut.log", level=kwargs.get("level", LEVEL.INFO))
-        self.logger.log("Qiskit_SUT initialized.", LEVEL.INFO)
-        self.SYSTEM_MESSAGE = "You are a Qiskit Fuzzer"
-        if kwargs["template"] == "fuzzing_with_config_file":
-            config_dict = kwargs["config_dict"]
-            self.prompt_used = self._create_prompt_from_config(config_dict)
-            self.config_dict = config_dict
-        else:
-            raise NotImplementedError
+    def __init__(self, sut_config: SUTConfig):
+        super().__init__(sut_config)
 
+        # Qiskit_SUT uses its own logger file, but respect the log level from config
+        log_level_enum = LEVEL[sut_config.log_level.upper()] if sut_config.log_level.upper() in LEVEL.__members__ else LEVEL.INFO
+        self.logger = GlobberLogger("qiskit_sut.log", level=log_level_enum)
+        self.logger.log("Qiskit_SUT initialized with SUTConfig.", LEVEL.INFO)
+        self.SYSTEM_MESSAGE = "You are a Qiskit Fuzzer"
+        self.prompt_used = self._create_prompt_from_config(sut_config)
+        self.logger.log(f"Unsupported template or no template for prompt creation: {sut_config.template}", LEVEL.INFO)
         self.coverage_manager = CoverageManager(Tool.QISKIT, pathlib.Path(f"/tmp/out{self.CURRENT_TIME}"))
         self.prev_coverage = 0
-        self.lambda_ = kwargs.get("lambda_", 0.1)
-        self.beta1_ = kwargs.get("beta1_", 1.0)
+        self.lambda_ = sut_config.lambda_hyper
+        self.beta1_ = sut_config.beta1_hyper
 
     def write_back_file(self, code):
         try:
@@ -211,24 +210,22 @@ class Qiskit_SUT(base_SUT):
                 if parser_result != FResult.SAFE:
                     self.logger.log(f"Static validation failed after recovery. Returning. Message: {parser_msg}", LEVEL.INFO)
                     return parser_result, parser_msg, 0.0
-            if hasattr(self, "config_dict"):
-                target = self.config_dict["target"]
-                oracle = target["oracle"]
-                self.logger.log(f"Oracle selected: {oracle}", LEVEL.TRACE)
-                if oracle == "crash":
-                    fresult, msg = self._validate_with_crash_oracle(filepath)
-                elif oracle == "diff":
-                    fresult, msg = self._validate_with_diff_opt_levels(filepath)
-                elif oracle == "metamorphic":
-                    fresult, msg = self._validate_with_QASM_roundtrip(filepath)
-                elif oracle == "opt_and_qasm":
-                    fresult, msg = self._validate_any_circuit(filepath)
-                else:
-                    self.logger.log(f"Unknown oracle: {oracle}, defaulting to crash oracle.", LEVEL.INFO)
-                    fresult, msg = self._validate_with_crash_oracle(filepath)
-            else:
-                self.logger.log("No config_dict found, defaulting to crash oracle.", LEVEL.INFO)
+            
+            # Use oracle_type from sut_config
+            oracle = self.sut_config.oracle_type 
+            self.logger.log(f"Oracle selected: {oracle}", LEVEL.TRACE)
+            if oracle == "crash":
                 fresult, msg = self._validate_with_crash_oracle(filepath)
+            elif oracle == "diff":
+                fresult, msg = self._validate_with_diff_opt_levels(filepath)
+            elif oracle == "metamorphic":
+                fresult, msg = self._validate_with_QASM_roundtrip(filepath)
+            elif oracle == "opt_and_qasm":
+                fresult, msg = self._validate_any_circuit(filepath)
+            else:
+                self.logger.log(f"Unknown oracle: {oracle}, defaulting to crash oracle.", LEVEL.INFO)
+                fresult, msg = self._validate_with_crash_oracle(filepath)
+            
             self.coverage_manager.run_once()
             new_cov = self.coverage_manager.update_total()
             coverage_diff = new_cov - self.prev_coverage

@@ -24,8 +24,6 @@ class OpenAIConfig:
 class DistillerConfig:
     folder: str
     logger: GlobberLogger
-    wrap_prompt_func: Callable[[str], str]
-    validate_prompt_func: Callable[[str], float]
     prompt_components: Dict[str, str] = field(default_factory=dict)
     openai_config: OpenAIConfig = None
     system_message: str = "You are an auto-prompting tool"

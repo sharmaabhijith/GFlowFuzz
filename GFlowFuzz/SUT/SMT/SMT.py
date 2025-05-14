@@ -5,7 +5,8 @@ from typing import List, Union
 import torch
 
 from GFlowFuzz.SUT.base_sut import FResult, base_SUT
-from GFlowFuzz.utils import comment_remover
+from GFlowFuzz.SUT.utils import SUTConfig
+from GFlowFuzz.utils import comment_remover, LEVEL
 from GFlowFuzz.oracle.coverage import CoverageManager, Tool
 import pathlib
 
@@ -52,21 +53,17 @@ def _check_cvc5_parse_error(stdout):
 
 
 class SMT_SUT(base_SUT):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, sut_config: SUTConfig):
+        super().__init__(sut_config)
         self.model = None  # to be declared
-        if kwargs["template"] == "fuzzing_with_config_file":
-            config_dict = kwargs["config_dict"]
-            self.prompt_used = self._create_prompt_from_config(config_dict)
-            self.config_dict = config_dict
-        else:
-            raise NotImplementedError
-
-        self.special_eos = "#|"
+        self.prompt_used = self._create_prompt_from_config(sut_config)
+        self.logger.log(f"Unsupported template or no template for prompt creation: {sut_config.template}", LEVEL.INFO)
+        # Use special_eos from sut_config, with a default if not provided
+        self.special_eos = sut_config.special_eos if sut_config.special_eos is not None else "#|"
         self.coverage_manager = CoverageManager(Tool.CVC5, pathlib.Path(f"/tmp/out{self.CURRENT_TIME}"))
         self.prev_coverage = 0
-        self.lambda_ = kwargs.get("lambda_", 0.1)
-        self.beta1_ = kwargs.get("beta1_", 1.0)
+        self.lambda_ = sut_config.lambda_hyper
+        self.beta1_ = sut_config.beta1_hyper
 
     def write_back_file(self, code):
         try:

@@ -6,6 +6,8 @@ import traceback
 
 from GFlowFuzz.distiller_LM.utils import OpenAIConfig, DistillerConfig, request_engine
 from GFlowFuzz.logger import GlobberLogger, LEVEL
+from GFlowFuzz.coder_LM import base_coder
+from GFlowFuzz.SUT import base_SUT
 
 
 
@@ -17,6 +19,8 @@ class Distiller:
     def __init__(
         self,
         distiller_config: DistillerConfig,
+        coder: base_coder,
+        SUT: base_SUT
     ) -> None:
         """
         Initialize the AutoPrompter.
@@ -33,13 +37,13 @@ class Distiller:
         self.folder = distiller_config.folder
         self.logger = GlobberLogger("distiller.log", level=LEVEL.INFO)
         self.logger.log("Distiller initialized.", LEVEL.INFO)
-        self.wrap_prompt = distiller_config.wrap_prompt_func
-        self.validate_prompt = distiller_config.validate_prompt_func
         self.prompt_components = distiller_config.prompt_components
         self.system_message = distiller_config.system_message
         self.instruction = distiller_config.instruction
         self.openai_config = distiller_config.openai_config
         self.engine_name = distiller_config.openai_config.engine_name
+        self.coder = coder
+        self.SUT = SUT
         # Create prompts directory if it doesn't exist
         os.makedirs(self.folder + "/prompts", exist_ok=True)
     
@@ -107,7 +111,10 @@ class Distiller:
                 self.folder + "/prompts/greedy_prompt.txt", "w", encoding="utf-8"
             ) as f:
                 f.write(greedy_prompt)   
-            best_prompt, best_score = greedy_prompt, self.validate_prompt(greedy_prompt)
+            best_prompt, best_score = greedy_prompt, self.SUT.validate_prompt(
+                greedy_prompt, 
+                self.coder
+            )
             self.logger.log(f"Greedy prompt score: {best_score}", LEVEL.TRACE)
             with open(self.folder + "/prompts/scores.txt", "a") as f:
                 f.write(f"greedy score: {str(best_score)}")
@@ -130,7 +137,7 @@ class Distiller:
                     "w", encoding="utf-8"
                 ) as f:
                     f.write(prompt)   
-                score = self.validate_prompt(prompt)
+                score = self.SUT.validate_prompt(prompt, self.coder)
                 self.logger.log(f"Sample {i} score: {score}", LEVEL.TRACE)
                 if score > best_score:
                     best_score = score

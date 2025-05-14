@@ -4,9 +4,9 @@ from typing import Dict, List
 
 @dataclass
 class CoderConfig:
-    coder_name: str
+    engine_name: str
+    temperature: float
     eos: List[str]
-    device: str
     max_length: int
 
 

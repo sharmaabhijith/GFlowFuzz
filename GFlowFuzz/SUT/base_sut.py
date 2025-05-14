@@ -1,61 +1,59 @@
 import glob
 import time
-from enum import Enum
 from typing import Any, Dict
 from rich.progress import track
 from GFlowFuzz.logger import GlobberLogger, LEVEL
 import traceback
-
-
-class FResult(Enum):
-    SAFE = 1  # validation returns okay
-    FAILURE = 2  # validation contains error (something wrong with validation)
-    ERROR = 3  # validation returns a potential error (look into)
-    LLM_WEAKNESS = (
-        4  # the generated input is ill-formed due to the weakness of the language model
-    )
-    TIMED_OUT = 10  # timed out, can be okay in certain targets
-
+from GFlowFuzz.SUT.utils import FResult, SUTConfig
+from coder_LM import base_coder
 
 # base class file for target, used for user defined system targets
 # the point is to separately define oracles/fuzzing specific functions/and usages
 # target should be a stateful objects which has some notion of history (keeping a state of latest prompts)
 class base_SUT(object):
-    def __init__(self, language="c", timeout=10, folder="/", **kwargs):
-        self.language = language
-        self.folder = folder
-        self.timeout = timeout
+    def __init__(self, sut_config: SUTConfig):
+        self.sut_config = sut_config
+        self.language = sut_config.language
+        self.folder = sut_config.folder
+        self.timeout = sut_config.timeout
         self.CURRENT_TIME = time.time()
         # model based variables
-        self.batch_size = kwargs["bs"]
-        self.temperature = kwargs["temperature"]
-        self.max_length = kwargs["max_length"]
-        self.device = kwargs["device"]
+        self.batch_size = sut_config.batch_size
+        self.temperature = sut_config.temperature
+        self.max_length = sut_config.max_length
         # loggers
-        self.logger = GlobberLogger("sut.log", level=kwargs.get("level", LEVEL.INFO))
-        self.logger.log("base_SUT initialized.", LEVEL.INFO)
+        log_level_enum = LEVEL[sut_config.log_level.upper()] if sut_config.log_level.upper() in LEVEL.__members__ else LEVEL.INFO
+        self.logger = GlobberLogger("sut.log", level=log_level_enum)
+        self.logger.log("base_SUT initialized with SUTConfig.", LEVEL.INFO)
         self.prompt_used = None
-        
 
     @staticmethod
-    def _create_prompt_from_config(config_dict: Dict[str, Any]) -> Dict:
-        """Read the prompt ingredients via a config file."""
+    def _create_prompt_from_config(sut_config: SUTConfig) -> Dict:
+        """Read the prompt ingredients via a SUTConfig object."""
         documentation, example_code, hand_written_prompt = None, None, None
 
-        # read the prompt ingredients from the config file
-        target = config_dict["target"]
-        path_documentation = target["path_documentation"]
-        if path_documentation is not None:
-            documentation = open(path_documentation, "r").read()
-        path_example_code = target["path_example_code"]
-        if path_example_code is not None:
-            example_code = open(path_example_code, "r").read()
-        trigger_to_generate_input = target["trigger_to_generate_input"]
-        input_hint = target["input_hint"]
-        path_hand_written_prompt = target["path_hand_written_prompt"]
-        if path_hand_written_prompt is not None:
-            hand_written_prompt = open(path_hand_written_prompt, "r").read()
-        target_string = target["target_string"]
+        if sut_config.path_documentation:
+            try:
+                documentation = open(sut_config.path_documentation, "r").read()
+            except FileNotFoundError:
+                print(f"Warning: Documentation file not found: {sut_config.path_documentation}")
+        if sut_config.path_example_code:
+            try:
+                example_code = open(sut_config.path_example_code, "r").read()
+            except FileNotFoundError:
+                print(f"Warning: Example code file not found: {sut_config.path_example_code}")
+        
+        trigger_to_generate_input = sut_config.trigger_to_generate_input
+        input_hint = sut_config.input_hint
+        
+        if sut_config.path_hand_written_prompt:
+            try:
+                hand_written_prompt = open(sut_config.path_hand_written_prompt, "r").read()
+            except FileNotFoundError:
+                print(f"Warning: Hand-written prompt file not found: {sut_config.path_hand_written_prompt}")
+        
+        target_string = sut_config.SUT_string
+        
         dict_compat = {
             "docstring": documentation,
             "example_code": example_code,
@@ -68,13 +66,19 @@ class base_SUT(object):
 
     def write_back_file(self, code: str):
         raise NotImplementedError
+    
+    def wrap_prompt(self, prompt: str) -> str:
+        raise NotImplementedError
+
+    def wrap_in_comment(self, prompt: str) -> str:
+        raise NotImplementedError
 
     # each target defines their way of validating prompts (can overwrite)
-    def validate_prompt(self, prompt: str):
+    def validate_prompt(self, prompt: str, coder: base_coder):
         self.logger.log(f"validate_prompt called with prompt: {str(prompt)[:200]}", LEVEL.TRACE)
         start_time = time.time()
         try:
-            fos = self.coder.generate(
+            fos = coder.generate(
                 prompt,
                 batch_size=self.batch_size,
                 temperature=self.temperature,
