@@ -1,10 +1,16 @@
-import os
 import torch
-import json
-import random
 from typing import List, Tuple
 import torch.nn.functional as F
+from transformers import (
+    AutoConfig,
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    get_linear_schedule_with_warmup,
+)
+from peft import LoraConfig, get_peft_model
+import torch.nn as nn
 from .utils import InstructorConfig
+from trainer import TrainerConfig
 
 class InstructionSequence:
     """
@@ -80,18 +86,87 @@ class InstructionSequence:
 
 
 class Instructor:
-    """Handles instruction-level generation logic"""
-    
+    """Handles instruction-level generation logic and manages its own LLM and training."""
+
     def __init__(self, instructor_config: InstructorConfig):
-        self.model = instructor_config.model
+        self.engine_name = instructor_config.engine_name
         self.tokenizer = instructor_config.tokenizer
         self.instruction_template = instructor_config.instruction_template
         self.separator = instructor_config.separator
         self.max_instructions = instructor_config.max_instructions
         self.temperature = instructor_config.temperature
         self.max_len = instructor_config.max_len
+        # Model, optimizer, scheduler, device, and projection layer will be set up later
+        self.model = None
+        self.optimizer = None
+        self.scheduler = None
+        self.device = None
 
-        
+    def setup_model_and_optimizer(self, trainer_config: TrainerConfig):
+        """
+        Setup model, tokenizer, optimizer, scheduler, and projection layer for training.
+        Args:
+            trainer_config: TrainerConfig object with model/training parameters.
+        """
+        # Device selection
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # Load model config
+        config = AutoConfig.from_pretrained(trainer_config.model_name)
+        config.use_cache = True
+        # Load pre-trained model and apply LoRA
+        self.model = AutoModelForCausalLM.from_pretrained(
+            trainer_config.sft_ckpt,
+            config=config,
+            device_map=None
+        ).to(self.device)
+        lora_config = LoraConfig(
+            r=trainer_config.lora_r,
+            lora_alpha=trainer_config.lora_alpha,
+            lora_dropout=trainer_config.lora_dropout,
+            bias="none",
+            task_type="CAUSAL_LM"
+        )
+        self.model = get_peft_model(self.model, lora_config)
+        self.model.print_trainable_parameters()
+        # Add projection layer for log_z
+        model_config = self.model.config
+        if "gpt2" in trainer_config.model_name:
+            n_dim = model_config.n_embd
+        else:
+            n_dim = model_config.hidden_size
+        self.model.proj_z = nn.Linear(n_dim, 1).to(self.device)
+        # Setup tokenizer
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            trainer_config.sft_ckpt, padding_side="left"
+        )
+        self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
+        # Setup optimizer and scheduler
+        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=trainer_config.lr)
+        t_total = trainer_config.train_steps * trainer_config.grad_acc_steps
+        self.scheduler = get_linear_schedule_with_warmup(
+            self.optimizer, trainer_config.num_warmup_steps, t_total
+        )
+
+    def train_step(self, log_z_sum, log_prob_sum, log_reward, max_norm):
+        """
+        Performs a single training step (forward + backward) using the provided computations.
+        Args:
+            log_z_sum: torch.Tensor
+            log_prob_sum: torch.Tensor
+            log_reward: torch.Tensor
+            max_norm: float, gradient clipping norm
+        Returns:
+            float: The computed loss value for this step.
+        """
+        self.model.train()
+        self.optimizer.zero_grad()
+        loss = (log_z_sum + log_prob_sum - log_reward) ** 2
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm)
+        self.optimizer.step()
+        self.scheduler.step()
+        return loss.item()
+
     def _avg_pooling(
             self, last_hidden: torch.Tensor, attention_mask: torch.Tensor
         ) -> torch.Tensor:

@@ -1,0 +1,165 @@
+@startuml
+namespace GFlowFuzz {
+
+  class Fuzzer {
+    +__init__(sut: base_SUT, ...)
+    +run() : void
+    +evaluate_all() : void
+    -__get_resume_count() : int
+  }
+
+  class Inspector {
+    +__init__(sut: base_SUT)
+    +inspect(fo: str, output_folder: str, count: int, otf: bool) : (FResult, str, float)
+    +compute_tb_loss(log_z_sum: float, log_prob_sum: float, log_reward: float) : float
+  }
+
+  class CoverageManager {
+    +__init__(tool: Tool, binary_path: Path)
+    +run_once(*argv: str, timeout: float = 2.0) : None
+    +update_total() : int
+  }
+
+  class InstructionSequence {
+    +__init__(initial_prompt: str = "")
+    +add_instruction(instruction: str) : void
+    +get_full_text(template: str = "", separator: str = "\n") : str
+    +get_next_prompt(template: str, separator: str = "\n") : str
+    +__len__() : int
+  }
+
+  class Instructor {
+    +__init__(instructor_config: InstructorConfig)
+    +setup_model_and_optimizer(trainer_config: TrainerConfig) : void
+    +train_step(log_z_sum, log_prob_sum, log_reward, max_norm) : float
+    +generate_instruction(
+        prompt_text: str,
+        temperature: float = 1.0,
+        max_len: int = 50,
+        stop_sequences: List~str~ = None
+      ) : (str, float, float)
+    +generate_instruction_sequence(
+        initial_prompt: str
+      ) : (InstructionSequence, List~float~, List~float~)
+  }
+
+  class Distiller {
+    +__init__(distiller_config: DistillerConfig)
+    +generate_prompt(message: str = None, num_samples: int = 3, max_tokens: int = 500) : str
+  }
+
+  class Coder {
+    +__init__(coder_config: CoderConfig)
+    +generate_code(
+        prompt: str,
+        batch_size: int = 10,
+        temperature: float = 1.0,
+        max_length: int = 512
+      ) : List~str~
+  }
+
+  class Trainer {
+    +__init__(
+        SUT: base_SUT,
+        fuzzer_config: FuzzerConfig,
+        distiller_config: DistillerConfig,
+        instructor_config: InstructorConfig,
+        coder_config: CoderConfig,
+        trainer_config: TrainerConfig
+      )
+    +train() : void
+    +evaluate_all() : void
+    -__get_resume_count() : int
+    -__train_off_policy(batch_size: int = 4, steps: int = 1) : void
+  }
+
+  class base_SUT {
+    +__init__(language: str, timeout: int, folder: str, ...)
+    +validate_individual(file_name: str) : (FResult, str)
+    +parse_validation_message(f_result: FResult, message: str, file_name: str) : void
+    +write_back_file(code: str) : str
+    +filter(code: str) : bool
+    +clean(code: str) : str
+    +clean_code(code: str) : str
+  }
+
+  class SMT_SUT {
+    +__init__(...)
+    +validate_individual(filename: str) : (FResult, str, float)
+    +clean_code(code: str) : str
+    +filter(code: str) : bool
+  }
+
+  class Qiskit_SUT {
+    +__init__(...)
+    +validate_individual(filepath: str) : (FResult, str, float)
+    +clean_code(code: str) : str
+    +filter(code: str) : bool
+  }
+
+  class JAVA_SUT {
+    +__init__(...)
+    +validate_individual(filename: str) : (FResult, str, float)
+    +determine_file_name(code: str) : str
+    +clean_code(code: str) : str
+    +filter(code: str) : bool
+  }
+
+  class GO_SUT {
+    +__init__(...)
+    +validate_individual(filename: str) : (FResult, str, float)
+    +clean_code(code: str) : str
+    +filter(code: str) : bool
+  }
+
+  class CPP_SUT {
+    +__init__(...)
+    +validate_individual(filename: str) : (FResult, str, float)
+    +clean_code(code: str) : str
+    +filter(code: str) : bool
+  }
+
+  class C_SUT {
+    +__init__(...)
+    +validate_individual(filename: str) : (FResult, str, float)
+    +clean_code(code: str) : str
+    +filter(code: str) : bool
+  }
+
+  enum FResult {
+    SAFE
+    FAILURE
+    ERROR
+    LLM_WEAKNESS
+    TIMED_OUT
+  }
+
+  enum Tool {
+    GCC
+    CLANG
+    GPP
+    Z3
+    CVC5
+    GO
+    JAVAC
+    QISKIT
+  }
+
+  ' Relationships
+  Fuzzer --> Distiller : uses
+  Fuzzer --> Instructor : uses
+  Fuzzer --> Coder : uses
+  Fuzzer --> Inspector : uses
+  Fuzzer --> Trainer : uses
+  Fuzzer --> base_SUT : uses
+
+  Inspector --> base_SUT : uses
+  Instructor --> InstructionSequence : creates
+  base_SUT <|-- SMT_SUT
+  base_SUT <|-- Qiskit_SUT
+  base_SUT <|-- JAVA_SUT
+  base_SUT <|-- GO_SUT
+  base_SUT <|-- CPP_SUT
+  base_SUT <|-- C_SUT
+}
+@enduml

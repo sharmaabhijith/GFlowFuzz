@@ -19,9 +19,10 @@ from transformers.pytorch_utils import ALL_LAYERNORM_LAYERS
 
 @dataclass
 class InstructorConfig:
-    model: Any
+    engine_name: str
     tokenizer: Any
     instruction_template: str
+    instruction_separator: str = "\n\n"
     separator: str
     max_instructions: int
     temperature: float

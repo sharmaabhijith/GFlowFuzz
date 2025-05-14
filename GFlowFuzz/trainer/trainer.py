@@ -4,270 +4,216 @@ This module handles instruction sequence generation and evaluation
 instead of token-by-token generation.
 """
 
-import logging
-import math
 import os
-import random
-from typing import Dict, List, Optional, Tuple, Union, Any
-
+import math
+import time
 import torch
-import torch.nn as nn
-import wandb
-from csv_logger import CsvLogger
-from dataset import get_dataloader
-from peft import LoraConfig, PeftModel, get_peft_model
-from sentence_transformers import SentenceTransformer
-from tqdm import tqdm
-from transformers import (
-    AutoConfig, 
-    AutoModelForCausalLM, 
-    AutoTokenizer,
-    get_linear_schedule_with_warmup
+
+from rich.traceback import install
+install()
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    TextColumn,
+    TimeElapsedColumn,
 )
-from vllm import LLM, SamplingParams
 
-from GFlowFuzz.instruct_LM.utils import (
-    InfIterator, 
-    batch_cosine_similarity_kernel, 
-    formatted_dict,
-)
-from GFlowFuzz.instruct_LM.utils import TrainerConfig, InstructionBuffer, InstructionEvaluator
-from sampler import InstructionSampler
+from distiller_LM import Distiller, DistillerConfig
+from instruct_LM import Instructor, InstructorConfig, InstructionBuffer
+from coder_LM import Coder, CoderConfig
+from SUT import base_SUT
+from oracle import Inspector
+
+from .utils import TrainerConfig, FuzzerConfig
+from .checkpointer import CheckpointManager
 
 
-class Trainer:
-    """
-    Trainer for generating instruction sequences that maximize reward.
-    Uses GFlowNet principles at the instruction sequence level.
-    """
-    
-    def __init__(self, config: TrainerConfig) -> None:
+class Fuzzer:
+    """Class for managing the fuzzing process using GFlowNet principles."""
+
+    def __init__(
+        self,
+        SUT: base_SUT,
+        fuzzer_config: FuzzerConfig,
+        distiller_config: DistillerConfig,
+        instructor_config: InstructorConfig,
+        coder_config: CoderConfig,
+        trainer_config: TrainerConfig,
+    ):
         """
-        Initialize the trainer with configuration
+        Initialize the fuzzer with SUT and configuration parameters.
         
         Args:
-            config: Trainer configuration
+            SUT (base_SUT): The system under test to fuzz.
+            fuzzer_config (FuzzerConfig): Configuration for fuzzing process.
+            distiller_config (DistillerConfig): Configuration for the distiller module.
+            instructor_config (InstructorConfig): Configuration for the instructor module.
+            coder_config (CoderConfig): Configuration for the coder module.
+            trainer_config (TrainerConfig): Configuration for training parameters.
         """
-        self.config = config
-        self._setup_device_and_logging()
-        self._setup_model_and_optimizer()
-        self._setup_instruction_buffer()
-        self._setup_modules()
-        
-        self.start_step = self._load_checkpoint()
-        
-    def _setup_device_and_logging(self) -> None:
-        """Setup device and logging"""
-        self.device = torch.cuda.current_device()
-        
-        # Initialize wandb
-        wandb.init(
-            reinit=True, 
-            config=self.config.as_dict(),
-            project=self.config.wandb_project, 
-            name=self.config.exp_name
-        )
-        
-        # Initialize CSV logger
-        delimiter = ","
-        self.csvlogger = CsvLogger(
-            filename=f"logs/{self.config.exp_name}_fuzz.csv",
-            delimiter=delimiter,
-            level=logging.INFO,
-            add_level_nums=None,
-            fmt=f'%(asctime)s{delimiter}%(message)s',
-            datefmt='%Y/%m/%d %H:%M:%S',
-            header=["date", "sequence", "c_log_reward", "lm_log_reward"]
-        )
-        
-    def _setup_model_and_optimizer(self) -> None:
-        """Setup model, tokenizer, optimizer and scheduler"""
-        # Motivation: This method initializes the model, tokenizer, optimizer,
-        # and learning rate scheduler for training.
-        
-        # Model dimensions:
-        # n_dim: Hidden size of the model, used for the projection layer
-        # proj_z: Linear layer with input size [hidden_dim] and output size [1]
-        
-        # Load model configuration
-        config = AutoConfig.from_pretrained(self.config.model_name)
-        config.use_cache = True
-        
-        # Load pre-trained model and apply LoRA
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.config.sft_ckpt,
-            config=config,
-            device_map=self.device
-        )
-        
-        lora_config = LoraConfig(
-            r=self.config.lora_r,
-            lora_alpha=self.config.lora_alpha,
-            lora_dropout=self.config.lora_dropout,
-            bias="none",
-            task_type="CAUSAL_LM"
-        )
-        
-        self.model = get_peft_model(self.model, lora_config)
-        self.model.print_trainable_parameters()
-        
-        # Add projection layer for log_z
-        model_config = self.model.config
-        if "gpt2" in self.config.model_name:
-            n_dim = model_config.n_embd
-        else:
-            n_dim = model_config.hidden_size
-            
-        self.model.proj_z = nn.Linear(n_dim, 1).to(self.device)
-        
-        # Setup tokenizer
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            self.config.sft_ckpt, padding_side="left"
-        )
-        self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
-        
-        # Setup optimizer and scheduler
-        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.config.lr)
-        t_total = self.config.train_steps * self.config.grad_acc_steps
-        self.scheduler = get_linear_schedule_with_warmup(
-            self.optimizer, self.config.num_warmup_steps, t_total
-        )
-        
-        
-    def _setup_instruction_buffer(self) -> None:
-        """Initialize instruction buffer"""
+        self.SUT = SUT
+        self.number_of_iterations = fuzzer_config.number_of_iterations
+        self.total_time = fuzzer_config.total_time
+        self.output_folder = fuzzer_config.output_folder
+        self.resume = fuzzer_config.resume
+        self.otf = fuzzer_config.otf
+        self.max_norm = trainer_config.max_norm
+        # Create output folder if it doesn't exist
+        os.makedirs(self.output_folder, exist_ok=True)
+        # Initialize the 3 modules of the framework
+        self.distiller = Distiller(distiller_config)
+        self.instructor = Instructor(instructor_config)
+        self.coder = Coder(coder_config)
+        self.oracle = Inspector(self.SUT)
         self.ibuffer = InstructionBuffer(
-            max_size=self.config.buffer_size,
-            prioritization=self.config.prioritization
+            max_size=trainer_config.buffer_size,
+            prioritization=trainer_config.prioritization
         )
-            
-    def _setup_modules(self) -> None:
-        """Setup functional modules"""
-        self.instruction_sampler = InstructionSampler(self.model, self.tokenizer)
-            
-    def _load_checkpoint(self) -> int:
+        # Setup instructor's model, optimizer, scheduler, tokenizer, and projection layer
+        self.instructor.setup_model_and_optimizer(trainer_config)
+        # Save reference for checkpointing
+        self.checkpointer = CheckpointManager(
+            save_dir=self.output_folder,
+            exp_name="instructor",
+            model=self.instructor.model,
+            optimizer=self.instructor.optimizer,
+            scheduler=self.instructor.scheduler,
+            ibuffer=self.ibuffer
+        )
+        # Initialize the fuzzing variables
+        self.count = 0
+        self.start_time = 0
+        
+    def __get_resume_count(self) -> int:
         """
-        Load checkpoint if available
+        Get the next count for resuming a fuzzing run.
         
         Returns:
-            Starting step number
+            int: The next count for file naming, based on existing output files.
         """
-        output_dir = os.path.join(self.config.save_dir, self.config.exp_name)
-        
-        if not os.path.exists(output_dir):
-            return 1
+        if not self.resume:
+            return 0
             
-        dirs = sorted(os.listdir(output_dir))
-        if len(dirs) == 0:
-            return 1
-        
-        # Find most recent checkpoint
-        dirs = [int(x) for x in dirs if x.isdigit()]
-        dirs = sorted(dirs, reverse=True)
-        ckpt_dir = os.path.join(output_dir, str(dirs[0]))
-        
-        # Load model
-        _model = AutoModelForCausalLM.from_pretrained(self.config.sft_ckpt)
-        _model = PeftModel.from_pretrained(_model, ckpt_dir)
-        msg = self.model.load_state_dict(_model.state_dict(), strict=False)
-        print(msg)
-        
-        # Load optimizer, scheduler, and projection layer
-        ckpt = torch.load(os.path.join(ckpt_dir, "ckpt.pt"))
-        self.model.proj_z.load_state_dict(ckpt["proj_z"])
-        self.optimizer.load_state_dict(ckpt["optimizer"])
-        self.scheduler.load_state_dict(ckpt["scheduler"])
-        
-        # Load buffer
-        buffer_path = os.path.join(ckpt_dir, "instruction_buffer.json")
-        if os.path.exists(buffer_path):
-            self.ibuffer.load(buffer_path)
-        
-        return ckpt["global_step"] + 1
-    
-    def _save_checkpoint(self, step: int) -> None:
-        """
-        Save checkpoint
-        
-        Args:
-            step: Current training step
-        """
-        output_dir = os.path.join(self.config.save_dir, f"{self.config.exp_name}/{step}")
-        
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-            
-        # Save model and tokenizer
-        self.model.save_pretrained(output_dir)
-        self.tokenizer.save_pretrained(output_dir)
-        
-        # Save optimizer, scheduler and projection layer
-        ckpt = {
-            "global_step": step,
-            "optimizer": self.optimizer.state_dict(),
-            "scheduler": self.scheduler.state_dict(),
-            "proj_z": self.model.proj_z.state_dict()
-        }
-        ckpt_file = os.path.join(output_dir, "ckpt.pt")
-        torch.save(ckpt, ckpt_file)
-        
-        # Save buffer
-        buffer_path = os.path.join(output_dir, "instruction_buffer.json")
-        self.ibuffer.save(buffer_path)
-    
-        
-    def _compute_tb_loss(self, log_z_sum: torch.Tensor, log_prob_sum: torch.Tensor, 
-                        log_reward: torch.Tensor) -> torch.Tensor:
-        """
-        Compute Trajectory Balance loss for instruction sequences
-        
-        Args:
-            log_z_sum: Sum of log Z values for the sequence
-            log_prob_sum: Sum of log probabilities for the sequence
-            log_reward: Log reward for the sequence
-            
-        Returns:
-            Loss tensor
-        """
-        # Motivation: The Trajectory Balance loss ensures that the generated
-        # sequences align with the reward distribution.
-        # Dimensions:
-        # log_z_sum: [1]
-        # log_prob_sum: [1]
-        # log_reward: [1]
-        delta = log_z_sum + log_prob_sum - log_reward
-        return delta**2
+        try:
+            n_existing = [
+                int(f.split(".")[0])
+                for f in os.listdir(self.output_folder)
+                if f.endswith(".fuzz")
+            ]
+            if not n_existing:
+                return 0
+            n_existing.sort(reverse=True)
+            return n_existing[0] + 1
+        except Exception as e:
+            print(f"Error getting resume count: {e}")
+            return 0
 
-
-    def train_step(self, log_z_sum: torch.Tensor, log_prob_sum: torch.Tensor, log_reward: torch.Tensor) -> float:
-        """
-        Performs a single training step (forward + backward) using the provided computations.
-        """
-        self.model.train()
-        self.optimizer.zero_grad()
-        loss = self._compute_tb_loss(log_z_sum, log_prob_sum, log_reward)  # Reuse the TB loss
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.max_norm) 
-        self.optimizer.step()
-        self.scheduler.step()
-        return loss.item()
-
-    def train_off_policy(self, batch_size: int = 4, steps: int = 1):
+    def __train_off_policy(self, batch_size: int = 4, steps: int = 1):
         """
         Performs off-policy training steps by sampling from the instruction buffer.
+
+        Args:
+            batch_size (int): Number of samples to draw from the buffer per step.
+            steps (int): Number of off-policy training steps to perform.
         """
         for _ in range(steps):
             batch = self.ibuffer.sample(batch_size)
             if not batch:
                 break
             for t in batch:
+                # Skip samples with non-positive reward
                 if t["reward"] <= 0:
                     continue
                 log_prob_sum = sum(t["f_log_probs"])
                 log_z_sum = t["logZ"]
                 log_reward = math.log(t["reward"])
-                self.train_step(
-                    torch.tensor(log_z_sum, device=self.device),
-                    torch.tensor(log_prob_sum, device=self.device),
-                    torch.tensor(log_reward, device=self.device)
+                # Perform a training step using the sampled data
+                self.instructor.train_step(
+                    torch.tensor(log_z_sum, device=self.instructor.device),
+                    torch.tensor(log_prob_sum, device=self.instructor.device),
+                    torch.tensor(log_reward, device=self.instructor.device)
                 )
+
+
+    def train(self) -> None:
+        """
+        Run the fuzzing process.
+
+        This method orchestrates the main fuzzing loop: generating prompts, instructions,
+        code, evaluating with the oracle, updating the buffer, and performing both
+        on-policy and off-policy training steps.
+        """
+        # Generate auto-prompt from documentation using the distiller
+        self.initial_prompt = self.distiller.generate_prompt()
+        self.prompt = self.initial_prompt
+        self.start_time = time.time()
+        with Progress(
+            TextColumn("Fuzzing • [progress.percentage]{task.percentage:>3.0f}%"),
+            BarColumn(),
+            MofNCompleteColumn(),
+            TextColumn("•"),
+            TimeElapsedColumn(),
+        ) as p:
+            task = p.add_task("Fuzzing", total=self.number_of_iterations)
+            # Resume from previous run if needed
+            self.count = self.__get_resume_count()
+            if self.resume and self.count > 0:
+                log = f" (resuming from {self.count})"
+                p.console.print(log)
+            p.update(task, advance=self.count)
+            # Main fuzzing loop
+            while (
+                self.count < self.number_of_iterations
+                ) and (
+                time.time() - self.start_time < self.total_time * 3600
+                ):
+                # Generate a sequence of instructions from the prompt
+                instructions, log_probs, log_zs = self.instructor.generate_instruction_sequence(
+                    self.prompt
+                )
+                # Generate code from the instructions using the coder
+                fos = self.coder.generate_code(prompt=instructions)
+                for fo in fos:
+                    # Evaluate the generated code using the oracle
+                    _, _, reward = self.oracle.inspect(
+                        fo = fo,
+                        output_folder = self.output_folder,
+                        count = self.count,
+                        otf = self.otf,
+                    )
+                    # Perform an on-policy training step
+                    loss_value = self.instructor.train_step(
+                        log_zs, log_probs, reward, self.max_norm
+                    )
+                    # Add off-policy data to buffer
+                    self.ibuffer.add(
+                        states=[],
+                        actions=[],
+                        instructions=instructions,
+                        forward_logprobs=log_probs,
+                        backward_logprobs=[],
+                        final_reward=reward.item() if hasattr(reward, "item") else reward,
+                        logZ=log_zs.item() if hasattr(log_zs, "item") else log_zs
+                    )
+                    # Perform an off-policy update
+                    self.__train_off_policy(batch_size=2, steps=1)
+                    # Save checkpoint every N steps (e.g., every 100 steps)
+                    if self.count % 100 == 0:
+                        self.checkpointer.save(self.count)
+                    self.count += 1
+
+
+    
+    def evaluate_all(self) -> None:
+        """
+        Evaluate all generated outputs against the oracle.
+
+        This method delegates to the SUT's validate_all method to perform
+        comprehensive evaluation of all outputs.
+        """
+        self.SUT.validate_all()
+
+
+
+

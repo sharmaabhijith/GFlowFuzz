@@ -1,0 +1,76 @@
+# Configuration file for the main script
+# This file contains detailed configurations for all LM modules and other required settings.
+
+coder:
+  # Configuration for the Coder module
+  batch_size: 1               # Batch size for code generation
+  temperature: 0.8            # Sampling temperature for generation
+  device: "cuda"              # Device to run the model (e.g., "cuda" or "cpu")
+  coder_name: "bigcode/starcoder"  # Name of the coder model
+  max_length: 1024            # Maximum length of generated code
+
+fuzzer:
+  # General fuzzing configurations
+  number_of_iterations: 10
+  total_time: 1
+  output_folder: "outputs"
+  resume: false
+  otf: false
+  use_hand_written_prompt: false  # Whether to use hand-written prompts
+  no_input_prompt: false      # Whether to disable input prompts
+  prompt_strategy: 0          # Strategy for generating prompts
+  log_level: 1                # Logging level
+  SUT_name: "SUT"             # Name of the System Under Test (SUT)
+
+target:
+  # Target-specific configurations
+  language: "c"               # Programming language of the target
+  path_documentation: "config/documentation/c/c_std.md"  # Path to documentation for the target
+  path_example_code: null     # Path to example code (if any)
+  trigger_to_generate_input: "---"  # Trigger string for generating input
+  input_hint: "Now please generate valid code"  # Hint for input generation
+  path_hand_written_prompt: null  # Path to hand-written prompts (if any)
+  target_string: "C Standard"  # Description of the target
+
+distiller:
+  # Configuration for the Distiller module
+  folder: "distiller_outputs" # Directory for distiller outputs
+  logger: null                # Logger instance (to be initialized in code)
+  wrap_prompt_func: null      # Function to wrap prompts (to be defined in code)
+  validate_prompt_func: null  # Function to validate prompts (to be defined in code)
+  prompt_components:          # Components for constructing prompts
+    documentation: "config/documentation/c/c_std.md"
+    examples: null
+  openai_config:              # OpenAI API configuration
+    engine_name: "gpt-3.5-turbo"
+    max_tokens: 100
+    temperature: 0.7
+    stop: null
+    top_p: 1.0
+  system_message: "You are an auto-prompting tool"
+  instruction: "Summarize the documentation to describe the target."
+
+instructor:
+  # Configuration for the Instructor module
+  model: "gpt2"               # Model name for the instructor
+  tokenizer: "gpt2"           # Tokenizer name for the instructor
+  instruction_template: "Generate the next instruction:"  # Template for instructions
+  separator: "\n\n"           # Separator for instructions
+  max_instructions: 5         # Maximum number of instructions in a sequence
+  temperature: 1.0            # Sampling temperature for instructions
+  max_len: 50                 # Maximum length of each instruction
+
+trainer:
+  # Configuration for the Trainer module
+  model_name: "gpt2"
+  sft_ckpt: "path/to/checkpoint"
+  train_steps: 1000
+  grad_acc_steps: 1
+  lr: 1e-4
+  max_norm: 1.0
+  num_warmup_steps: 10
+  lora_r: 8
+  lora_alpha: 32
+  lora_dropout: 0.1
+  buffer_size: 100
+  prioritization: true
