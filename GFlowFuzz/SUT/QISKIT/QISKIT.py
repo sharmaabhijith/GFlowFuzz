@@ -9,7 +9,7 @@ from typing import List, Tuple, Union
 import time
 import traceback
 
-from GFlowFuzz.SUT.base_sut import FResult, base_SUT
+from GFlowFuzz.SUT.base_sut import FResult, BaseSUT
 from GFlowFuzz.SUT.utils import SUTConfig
 from GFlowFuzz.logger import GlobberLogger, LEVEL
 from GFlowFuzz.oracle.coverage import CoverageManager, Tool
@@ -83,7 +83,7 @@ qc = transpile(qc, optimization_level=3)
 """
 
 
-class Qiskit_SUT(base_SUT):
+class Qiskit_SUT(BaseSUT):
     def __init__(self, sut_config: SUTConfig):
         super().__init__(sut_config)
 

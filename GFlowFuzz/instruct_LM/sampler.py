@@ -100,11 +100,11 @@ class Instructor:
         self.max_instructions = instructor_config.max_instructions
         self.temperature = instructor_config.temperature
         self.max_len = instructor_config.max_len
-        # Model, optimizer, scheduler, device, and projection layer will be set up later
+        self.device = instructor_config.device
+        # Model, optimizer, scheduler, and projection layer will be set up later
         self.model = None
         self.optimizer = None
         self.scheduler = None
-        self.device = None
         self.logger = GlobberLogger("instructor.log", level=LEVEL.INFO)
         self.logger.log("Instructor initialized.", LEVEL.INFO)
 
@@ -114,8 +114,6 @@ class Instructor:
         Args:
             trainer_config: TrainerConfig object with model/training parameters.
         """
-        # Device selection
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # Load model config
         config = AutoConfig.from_pretrained(trainer_config.model_name)
         config.use_cache = True

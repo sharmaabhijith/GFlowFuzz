@@ -5,12 +5,12 @@ from rich.progress import track
 from GFlowFuzz.logger import GlobberLogger, LEVEL
 import traceback
 from GFlowFuzz.SUT.utils import FResult, SUTConfig
-from coder_LM import base_coder
+from coder_LM import BaseCoder
 
 # base class file for target, used for user defined system targets
 # the point is to separately define oracles/fuzzing specific functions/and usages
 # target should be a stateful objects which has some notion of history (keeping a state of latest prompts)
-class base_SUT(object):
+class BaseSUT(object):
     def __init__(self, sut_config: SUTConfig):
         self.sut_config = sut_config
         self.language = sut_config.language
@@ -24,7 +24,7 @@ class base_SUT(object):
         # loggers
         log_level_enum = LEVEL[sut_config.log_level.upper()] if sut_config.log_level.upper() in LEVEL.__members__ else LEVEL.INFO
         self.logger = GlobberLogger("sut.log", level=log_level_enum)
-        self.logger.log("base_SUT initialized with SUTConfig.", LEVEL.INFO)
+        self.logger.log("BaseSUT initialized with SUTConfig.", LEVEL.INFO)
         self.prompt_used = None
 
     @staticmethod
@@ -74,11 +74,11 @@ class base_SUT(object):
         raise NotImplementedError
 
     # each target defines their way of validating prompts (can overwrite)
-    def validate_prompt(self, prompt: str, coder: base_coder):
+    def validate_prompt(self, prompt: str, coder: BaseCoder):
         self.logger.log(f"validate_prompt called with prompt: {str(prompt)[:200]}", LEVEL.TRACE)
         start_time = time.time()
         try:
-            fos = coder.generate(
+            fos = coder.generate_code(
                 prompt,
                 batch_size=self.batch_size,
                 temperature=self.temperature,

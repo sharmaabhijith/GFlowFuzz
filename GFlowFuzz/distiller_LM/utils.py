@@ -23,9 +23,8 @@ class OpenAIConfig:
 @dataclass
 class DistillerConfig:
     folder: str
-    logger: GlobberLogger
     prompt_components: Dict[str, str] = field(default_factory=dict)
-    openai_config: OpenAIConfig = None
+    openai_config: Optional[OpenAIConfig] = None
     system_message: str = "You are an auto-prompting tool"
     instruction: str = "Please summarize the above documentation in a concise manner to describe the usage and functionality of the target"
 

@@ -69,7 +69,11 @@ def load_config_file(filepath: str):
     return config
 
 
-def load_config_file(main_config: str):
+def load_configurations(main_config_path: str):
+    """Load all configurations from the main YAML file."""
+    with open(main_config_path, "r") as f:
+        main_config = yaml.load(f, Loader=yaml.FullLoader)
+
     configs = {}
     configs["openai_config"] = OpenAIConfig(
         engine_name=main_config["openai_config"]["engine_name"],
@@ -80,7 +84,6 @@ def load_config_file(main_config: str):
     )
     configs["distiller_config"] = DistillerConfig(
         folder=main_config["distiller"]["folder"],
-        logger=main_config["distiller"]["logger"],
         prompt_components=main_config["distiller"]["prompt_components"],
         openai_config=configs["openai_config"],
         system_message=main_config["distiller"]["system_message"],
@@ -102,6 +105,7 @@ def load_config_file(main_config: str):
         eos=main_config["coder"]["eos"],
     )
     configs["trainer_config"] = TrainerConfig(
+        device=main_config["trainer"]["device"],
         sft_ckpt=main_config["trainer"]["sft_ckpt"],
         train_steps=main_config["trainer"]["train_steps"],
         grad_acc_steps=main_config["trainer"]["grad_acc_steps"],
@@ -134,7 +138,6 @@ def load_config_file(main_config: str):
         batch_size=main_config["SUT"]["batch_size"],
         temperature=main_config["SUT"]["temperature"],
         max_length=main_config["SUT"]["max_length"],
-        device=main_config["SUT"]["device"],
         log_level=main_config["SUT"]["log_level"],
         path_hand_written_prompt=main_config["SUT"].get("path_hand_written_prompt", None),
         template=main_config["SUT"].get("template", None),

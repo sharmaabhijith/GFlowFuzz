@@ -26,7 +26,7 @@ class BaseCoder:
         self.model = AutoModelForCausalLM.from_pretrained(
             coder_config.engine_name,
             torch_dtype=torch.bfloat16,
-        ).to(coder_config.device)
+        ).to(self.device)
         self.eos = EOF_STRINGS + coder_config.eos
         self.max_length = coder_config.max_length
         self.skip_special_tokens = False

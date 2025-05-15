@@ -8,6 +8,7 @@ class CoderConfig:
     temperature: float
     eos: List[str]
     max_length: int
+    device: str
 
 
 class EndOfFunctionCriteria(StoppingCriteria):

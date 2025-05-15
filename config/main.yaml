@@ -41,7 +41,6 @@ SUT:
   batch_size: 1                   # Batch size for code generation during SUT validation steps
   temperature: 0.8                # Temperature for code generation during SUT validation steps
   max_length: 1024                # Max length for code generation during SUT validation steps
-  device: "cuda"                  # Device for SUT operations (if specific, e.g. model inference within SUT)
   log_level: "INFO"               # Logging level for SUT specific logs (INFO, TRACE, VERBOSE)
   path_hand_written_prompt: null  # Optional path to a hand-written prompt component
   template: "fuzzing_with_config_file" # Template name for prompt creation strategy

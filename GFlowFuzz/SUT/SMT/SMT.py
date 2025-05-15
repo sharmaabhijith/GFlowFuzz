@@ -4,7 +4,7 @@ from typing import List, Union
 
 import torch
 
-from GFlowFuzz.SUT.base_sut import FResult, base_SUT
+from GFlowFuzz.SUT.base_sut import FResult, BaseSUT
 from GFlowFuzz.SUT.utils import SUTConfig
 from GFlowFuzz.utils import comment_remover, LEVEL
 from GFlowFuzz.oracle.coverage import CoverageManager, Tool
@@ -52,7 +52,7 @@ def _check_cvc5_parse_error(stdout):
     return error
 
 
-class SMT_SUT(base_SUT):
+class SMT_SUT(BaseSUT):
     def __init__(self, sut_config: SUTConfig):
         super().__init__(sut_config)
         self.model = None  # to be declared

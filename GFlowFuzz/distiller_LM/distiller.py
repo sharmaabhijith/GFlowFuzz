@@ -6,8 +6,8 @@ import traceback
 
 from GFlowFuzz.distiller_LM.utils import OpenAIConfig, DistillerConfig, request_engine
 from GFlowFuzz.logger import GlobberLogger, LEVEL
-from GFlowFuzz.coder_LM import base_coder
-from GFlowFuzz.SUT import base_SUT
+from GFlowFuzz.coder_LM import BaseCoder
+from GFlowFuzz.SUT import BaseSUT
 
 
 
@@ -19,8 +19,8 @@ class Distiller:
     def __init__(
         self,
         distiller_config: DistillerConfig,
-        coder: base_coder,
-        SUT: base_SUT
+        coder: BaseCoder,
+        SUT: BaseSUT,
     ) -> None:
         """
         Initialize the AutoPrompter.

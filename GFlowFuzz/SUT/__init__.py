@@ -6,7 +6,7 @@ from .GO.GO import GO_SUT
 from .JAVA.JAVA import JAVA_SUT
 from .QISKIT.QISKIT import Qiskit_SUT
 from .SMT.SMT import SMT_SUT
-from .base_sut import base_SUT
+from .base_sut import BaseSUT
 from .utils import SUTConfig, FResult
 
 # Dictionary to map language to SUT class
@@ -20,7 +20,7 @@ __SUT_CLASS_MAP = {
     "java": JAVA_SUT,
 }
 
-def make_SUT(sut_config: SUTConfig) -> base_SUT:
+def make_SUT(sut_config: SUTConfig) -> BaseSUT:
     """Create a SUT from a SUTConfig object and an optional coder instance."""
     # Optional: Print SUT config for verification (can be controlled by a flag in sut_config if needed)
     print("=== SUT Config ===")

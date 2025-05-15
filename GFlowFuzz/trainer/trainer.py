@@ -47,13 +47,17 @@ class Fuzzer:
         Initialize the fuzzer with SUT and configuration parameters.
         
         Args:
-            SUT (base_SUT): The system under test to fuzz.
+            SUT (BaseSUT): The system under test to fuzz.
             fuzzer_config (FuzzerConfig): Configuration for fuzzing process.
             distiller_config (DistillerConfig): Configuration for the distiller module.
             instructor_config (InstructorConfig): Configuration for the instructor module.
             coder_config (CoderConfig): Configuration for the coder module.
             trainer_config (TrainerConfig): Configuration for training parameters.
         """
+        # Ensure all modules of the fuzzer are set to the same device
+        coder_config.device = trainer_config.device
+        instructor_config.device = trainer_config.device
+        SUT_config.device = trainer_config.device
         self.SUT = make_SUT(SUT_config)
         self.number_of_iterations = fuzzer_config.number_of_iterations
         self.total_time = fuzzer_config.total_time
@@ -88,6 +92,7 @@ class Fuzzer:
         self.start_time = 0
         self.logger = GlobberLogger("fuzzer.log", level=LEVEL.TRACE)
         self.logger.log("Fuzzer initialized.", LEVEL.INFO)
+        self.logger.log(f"SUTConfig: {SUT_config}", LEVEL.TRACE)
         self.logger.log(f"FuzzerConfig: {fuzzer_config}", LEVEL.TRACE)
         self.logger.log(f"TrainerConfig: {trainer_config}", LEVEL.TRACE)
         self.logger.log(f"DistillerConfig: {distiller_config}", LEVEL.TRACE)
@@ -96,6 +101,7 @@ class Fuzzer:
         self.logger.log(f"Output folder: {self.output_folder}", LEVEL.TRACE)
         self.logger.log(f"Resume: {self.resume}, OTF: {self.otf}", LEVEL.TRACE)
         
+
     def __get_resume_count(self) -> int:
         """
         Get the next count for resuming a fuzzing run.

@@ -5,7 +5,7 @@ from typing import List, Union
 
 import torch
 
-from GFlowFuzz.SUT.base_sut import FResult, base_SUT
+from GFlowFuzz.SUT.base_sut import FResult, BaseSUT
 from GFlowFuzz.SUT.utils import SUTConfig
 from GFlowFuzz.utils import LEVEL, comment_remover
 from GFlowFuzz.oracle.coverage import CoverageManager, Tool
@@ -18,7 +18,7 @@ return 0;
 """
 
 
-class CPP_SUT(base_SUT):
+class CPP_SUT(BaseSUT):
     def __init__(self, sut_config: SUTConfig):
         super().__init__(sut_config)
         self.SYSTEM_MESSAGE = "You are a C++ Fuzzer"

@@ -27,7 +27,7 @@ class InstructorConfig:
     max_instructions: int
     temperature: float
     max_len: int
-
+    device: str
 
 def batch_cosine_similarity_kernel(embeddings, batch_size=16):
     num_samples = embeddings.size(0)

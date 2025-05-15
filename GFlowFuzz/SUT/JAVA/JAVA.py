@@ -5,14 +5,14 @@ from pathlib import Path
 from re import search
 from typing import List, Union
 
-from GFlowFuzz.SUT.base_sut import FResult, base_SUT
+from GFlowFuzz.SUT.base_sut import FResult, BaseSUT
 from GFlowFuzz.SUT.utils import SUTConfig
 from GFlowFuzz.utils import comment_remover, LEVEL
 from GFlowFuzz.oracle.coverage import CoverageManager, Tool
 import pathlib
 
 
-class JAVA_SUT(base_SUT):
+class JAVA_SUT(BaseSUT):
     def __init__(self, sut_config: SUTConfig):
         super().__init__(sut_config)
         self.prompt_used = self._create_prompt_from_config(sut_config)

@@ -1,11 +1,11 @@
-from GFlowFuzz.SUT.base_sut import FResult, base_SUT
+from GFlowFuzz.SUT.base_sut import FResult, BaseSUT
 from GFlowFuzz.logger import GlobberLogger, LEVEL
 import os
 import time
 import traceback
 
 class Inspector:
-    def __init__(self, sut: base_SUT):
+    def __init__(self, sut: BaseSUT):
         self.sut = sut
         self.logger = GlobberLogger("inspector.log", level=LEVEL.INFO)
         self.logger.log("Inspector initialized.", LEVEL.INFO)

@@ -3,7 +3,7 @@ import subprocess
 from typing import List
 import pathlib
 
-from GFlowFuzz.SUT.base_sut import FResult, base_SUT
+from GFlowFuzz.SUT.base_sut import FResult, BaseSUT
 from GFlowFuzz.utils import LEVEL
 from GFlowFuzz.utils import comment_remover
 from GFlowFuzz.oracle import CoverageManager, Tool
@@ -57,7 +57,7 @@ def get_most_recent_cpp_version() -> str:
 MOST_RECENT_GCC_STD_VERSION = get_most_recent_cpp_version()
 
 
-class C_SUT(base_SUT):
+class C_SUT(BaseSUT):
     def __init__(self, sut_config: SUTConfig):
         super().__init__(sut_config)
         self.SYSTEM_MESSAGE = "You are a C Fuzzer"
