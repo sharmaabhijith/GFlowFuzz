@@ -17,6 +17,7 @@ class SUTConfig:
     path_example_code: str
     trigger_to_generate_input: str
     input_hint: str
+    path_hand_written_prompt: str | None
     SUT_string: str
     timeout: int
     folder: str
@@ -25,7 +26,6 @@ class SUTConfig:
     max_length: int
     device: str
     log_level: str
-    path_hand_written_prompt: str | None
     template: str | None
     lambda_hyper: float
     beta1_hyper: float

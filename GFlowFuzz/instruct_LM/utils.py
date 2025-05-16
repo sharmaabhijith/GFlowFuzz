@@ -15,14 +15,19 @@ from torch.nn.utils.rnn import pad_sequence
 from tqdm import tqdm
 from transformers.pytorch_utils import ALL_LAYERNORM_LAYERS
 
+@dataclass
+class TemplateConfig:
+    main: str
+    desc: str
+    note: str
+    next: str
 
 
 @dataclass
 class InstructorConfig:
     engine_name: str
     tokenizer: Any
-    instruction_template: str
-    instruction_separator: str = "\n\n"
+    template: TemplateConfig
     separator: str
     max_instructions: int
     temperature: float

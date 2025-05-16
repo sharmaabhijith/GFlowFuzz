@@ -1,18 +1,17 @@
 import os
 import signal
 import time
-import random
 import openai
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Callable
 from GFlowFuzz.logger import GlobberLogger
 
+# Initialize OpenAI client
 openai.api_key = os.environ.get("OPENAI_API_KEY", "dummy")
 client = openai.OpenAI()
 
 @dataclass
 class OpenAIConfig:
-    prev: Dict
     messages: List
     max_tokens: int
     temperature: float = 2
@@ -23,7 +22,6 @@ class OpenAIConfig:
 @dataclass
 class DistillerConfig:
     folder: str
-    prompt_components: Dict[str, str] = field(default_factory=dict)
     openai_config: Optional[OpenAIConfig] = None
     system_message: str = "You are an auto-prompting tool"
     instruction: str = "Please summarize the above documentation in a concise manner to describe the usage and functionality of the target"

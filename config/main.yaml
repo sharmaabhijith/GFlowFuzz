@@ -5,18 +5,22 @@ distiller:
   folder: "distiller_outputs"       # Directory for distiller prompts
   openai_config: 
     engine_name: "gpt-3.5-turbo"
-    max_tokens: 100
-    temperature: 0.7
+    max_tokens: 200
+    temperature: 2
     stop: null
     top_p: 1.0
   system_message: "You are an auto-prompting tool"
-  instruction: "Summarize the documentation to describe the target."
+  instruction: "Please summarize the above documentation in a concise manner to describe the usage and functionality of the target"
 
 instructor:
   engine_name: "gpt2"               # Model name for the instructor
   tokenizer: "gpt2"                 # Tokenizer name for the instructor
-  instruction_template: "Generate the next instruction:"  # Template for instructions
-  separator: "\n\n"                 # Separator for instructions
+  template:                         # Describe the context of instruction generation
+    main: "You are a sequential instruction generation tool."
+    desc: "Your task is to create an instruction set as a guide for generating code. The instruction set is a sequence of instructions where each instruction adds a new layer of incremental complexity to the existing description of requirements."
+    note: "DO NOT generate any code. Only generate instructions." # Add specific restrictions 
+    next: "Generate the next instruction:"  # To guide LLM to generate the next instruction
+  separator: "\n"                 # Separator for instructions
   max_instructions: 10              # Maximum number of instructions in a sequence
   temperature: 1.0                  # Sampling temperature for instructions
   max_len: 50                       # Maximum length of each instruction
@@ -32,8 +36,9 @@ SUT:
   language: "c"                   # Programming language of the target
   path_documentation: "config/documentation/c/c_std.md"  # Path to documentation for the target
   path_example_code: null         # Path to example code (if any)
-  trigger_to_generate_input: "/* Please create a short program which uses new C features in a complex way */"  # Trigger string for generating input
+  trigger_to_generate_input: "/* Please create a advanced C program following all the instructions closely. I need the code to have good coverage for testing compiler for potential discovery of bugs.*/"  # Trigger string for generating input
   input_hint: "#include <stdlib.h>"  # Hint for input generation
+  path_hand_written_prompt: null  # Optional path to a hand-written prompt component
   SUT_string: ""                  # Description of the target (e.g. API name for prompt construction)
   # New fields from SUTConfig
   timeout: 10                     # Timeout for SUT operations (e.g., validation)
@@ -42,7 +47,6 @@ SUT:
   temperature: 0.8                # Temperature for code generation during SUT validation steps
   max_length: 1024                # Max length for code generation during SUT validation steps
   log_level: "INFO"               # Logging level for SUT specific logs (INFO, TRACE, VERBOSE)
-  path_hand_written_prompt: null  # Optional path to a hand-written prompt component
   template: "fuzzing_with_config_file" # Template name for prompt creation strategy
   lambda_hyper: 0.1               # Hyperparameter lambda for reward calculation
   beta1_hyper: 1.0                # Hyperparameter beta1 for reward calculation

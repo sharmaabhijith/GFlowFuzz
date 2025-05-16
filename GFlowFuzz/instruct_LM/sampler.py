@@ -9,6 +9,8 @@ from transformers import (
 )
 from peft import LoraConfig, get_peft_model
 import torch.nn as nn
+from dataclasses import asdict
+
 from .utils import InstructorConfig
 from trainer import TrainerConfig
 from GFlowFuzz.logger import GlobberLogger, LEVEL
@@ -44,7 +46,7 @@ class InstructionSequence:
         """
         self.instructions.append(instruction)  # Append the instruction to the list.
         
-    def get_full_text(self, template: str = "", separator: str = "\n") -> str:
+    def get_full_text(self, template: dict, separator: str = "\n") -> str:
         """
         Get the full text of the sequence, including the prompt and all instructions.
         
@@ -56,13 +58,15 @@ class InstructionSequence:
             str: Concatenated string of the initial prompt and all instructions with separators.
         """
         # Add two newline gap between main prompt and rest of the instructions.
-        text = self.initial_prompt + separator # Start with the initial prompt.
-        test += "Follow the instructions below closely to generate the code" + separator
+        text = "INITIAL PROMPT: " + self.initial_prompt + separator + separator # Start with the initial prompt.
+        text += "MAIN: " + template["main"] + separator
+        text += "TASK: " + template["desc"] + separator
+        text += "NOTE: " + template["note"] + separator
         for i, instruction in enumerate(self.instructions):
             text += separator + f"{str(i)} - " + instruction # Append the instruction.
         return text  # Return the full concatenated text.
     
-    def get_next_prompt(self, template: str, separator: str = "\n") -> str:
+    def get_next_prompt(self, template: dict, separator: str = "\n") -> str:
         """
         Get the text to prompt for the next instruction.
         
@@ -73,9 +77,8 @@ class InstructionSequence:
         Returns:
             str: Full text with the template appended, ready for the next instruction generation.
         """
-        text = self.get_full_text(separator=separator)  # Get the full text of the sequence so far.
-        if template:
-            text += separator + template  # Append the template with a separator.
+        text = self.get_full_text(template, separator)  # Get the full text of the sequence so far.
+        text += separator + template["next"]  # Append the template with a separator.
         return text  # Return the next prompt text.
     
     def __len__(self) -> int:
@@ -95,7 +98,7 @@ class Instructor:
     def __init__(self, instructor_config: InstructorConfig):
         self.engine_name = instructor_config.engine_name
         self.tokenizer = instructor_config.tokenizer
-        self.instruction_template = instructor_config.instruction_template
+        self.template = asdict(instructor_config.template)
         self.separator = instructor_config.separator
         self.max_instructions = instructor_config.max_instructions
         self.temperature = instructor_config.temperature
@@ -121,8 +124,8 @@ class Instructor:
         self.model = AutoModelForCausalLM.from_pretrained(
             trainer_config.sft_ckpt,
             config=config,
-            device_map=None
-        ).to(self.device)
+            device_map=self.device
+        )
         lora_config = LoraConfig(
             r=trainer_config.lora_r,
             lora_alpha=trainer_config.lora_alpha,
@@ -258,7 +261,7 @@ class Instructor:
             log_zs = []
             for idx in range(self.max_instructions):
                 next_prompt = sequence.get_next_prompt(
-                    self.instruction_template, self.separator
+                    self.template, self.separator
                 )
                 self.logger.log(f"Generating instruction {idx} with next_prompt: {str(next_prompt)[:200]}", LEVEL.TRACE)
                 instruction, log_prob, log_z = self.generate_instruction(

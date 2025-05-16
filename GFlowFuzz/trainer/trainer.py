@@ -196,20 +196,12 @@ class Fuzzer:
                         )
                         self.logger.log(f"Reward: {reward}", LEVEL.VERBOSE)
                         loss_value = self.instructor.train_step(
-                            log_zs, log_probs, reward, self.max_norm
+                            log_prob_sum=sum(log_zs), 
+                            log_prob_sum=sum(log_probs), 
+                            reward=reward, 
+                            max_norm=self.max_norm
                         )
                         self.logger.log(f"Loss value: {loss_value}", LEVEL.VERBOSE)
-                        self.ibuffer.add(
-                            states=[],
-                            actions=[],
-                            instructions=instructions,
-                            forward_logprobs=log_probs,
-                            backward_logprobs=[],
-                            final_reward=reward.item() if hasattr(reward, "item") else reward,
-                            logZ=log_zs.item() if hasattr(log_zs, "item") else log_zs
-                        )
-                        self.logger.log(f"Buffer size after add: {len(self.ibuffer)}", LEVEL.TRACE)
-                        self.__train_off_policy(batch_size=2, steps=1)
                         if self.count % 100 == 0:
                             self.logger.log(f"Checkpoint saved at step {self.count}", LEVEL.INFO)
                         iter_end = time.time()
