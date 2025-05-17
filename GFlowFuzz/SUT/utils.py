@@ -1,3 +1,4 @@
+import re
 from enum import Enum
 from dataclasses import dataclass
 
@@ -31,3 +32,26 @@ class SUTConfig:
     beta1_hyper: float
     special_eos: str | None
     oracle_type: str
+
+
+def comment_remover(text, lang="cpp"):
+    if lang == "cpp" or lang == "go" or lang == "java":
+
+        def replacer(match):
+            s = match.group(0)
+            if s.startswith("/"):
+                return " "  # note: a space and not an empty string
+            else:
+                return s
+
+        pattern = re.compile(
+            r'//.*?$|/\*.*?\*/|\'(?:\\.|[^\\\'])*\'|"(?:\\.|[^\\"])*"',
+            re.DOTALL | re.MULTILINE,
+        )
+        return re.sub(pattern, replacer, text)
+    elif lang == "smt2":
+        return re.sub(r";.*", "", text)
+    else:
+        # TODO (Add other lang support): temp, only facilitate basic c/cpp syntax
+        # raise NotImplementedError("Only cpp supported for now")
+        return text

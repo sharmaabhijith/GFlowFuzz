@@ -4,10 +4,8 @@ from typing import List
 import pathlib
 
 from GFlowFuzz.SUT.base_sut import FResult, BaseSUT
-from GFlowFuzz.utils import LEVEL
-from GFlowFuzz.utils import comment_remover
 from GFlowFuzz.oracle import CoverageManager, Tool
-from GFlowFuzz.SUT.utils import SUTConfig
+from GFlowFuzz.SUT.utils import SUTConfig, comment_remover
 
 main_code = """
 int main(){

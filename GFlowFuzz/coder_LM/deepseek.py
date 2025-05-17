@@ -1,8 +1,8 @@
 from typing import List
-from .base_coder import BaseCoder
+from .base_coder import BaseCoderLocal
 from .utils import CoderConfig
 
-class DeepSeekCoder(BaseCoder):
+class DeepSeekCoder(BaseCoderLocal):
     def __init__(self, coder_config: CoderConfig):
         super().__init__(coder_config)
 

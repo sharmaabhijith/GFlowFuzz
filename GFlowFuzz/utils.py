@@ -1,58 +1,12 @@
 import re
 import yaml
 
-from distiller_LM import DistillerConfig, OpenAIConfig
+from distiller_LM import DistillerConfig
 from instruct_LM import InstructorConfig
 from coder_LM import CoderConfig
 from trainer import TrainerConfig, FuzzerConfig, SUTConfig
+from client_LLM import LLMConfig
 
-
-def comment_remover(text, lang="cpp"):
-    if lang == "cpp" or lang == "go" or lang == "java":
-
-        def replacer(match):
-            s = match.group(0)
-            if s.startswith("/"):
-                return " "  # note: a space and not an empty string
-            else:
-                return s
-
-        pattern = re.compile(
-            r'//.*?$|/\*.*?\*/|\'(?:\\.|[^\\\'])*\'|"(?:\\.|[^\\"])*"',
-            re.DOTALL | re.MULTILINE,
-        )
-        return re.sub(pattern, replacer, text)
-    elif lang == "smt2":
-        return re.sub(r";.*", "", text)
-    else:
-        # TODO (Add other lang support): temp, only facilitate basic c/cpp syntax
-        # raise NotImplementedError("Only cpp supported for now")
-        return text
-
-# most fuzzing targets should be some variation of source code
-# so this function is likely fine, but we can experiment with
-# other more clever variations
-def simple_parse(gen_body: str):
-    # first check if its a code block
-    if "```" in gen_body:
-        func = gen_body.split("```")[1]
-        func = "\n".join(func.split("\n")[1:])
-    else:
-        func = ""
-    return func
-
-
-def create_chatgpt_docstring_template(
-    system_message: str, user_message: str, docstring: str, example: str, first: str
-):
-    messages = [{"role": "system", "content": system_message}]
-    messages.append({"role": "user", "content": docstring})
-    messages.append({"role": "user", "content": example})
-    if first != "":
-        messages.append({"role": "user", "content": user_message})
-        messages.append({"role": "assistant", "content": "```\n{}\n```".format(first)})
-    messages.append({"role": "user", "content": user_message})
-    return messages
 
 
 def natural_sort_key(s):
@@ -62,37 +16,27 @@ def natural_sort_key(s):
     ]
 
 
-def load_config_file(filepath: str):
-    """Load the config file."""
-    with open(filepath, "r") as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
-    return config
-
-
 def load_configurations(main_config_path: str):
     """Load all configurations from the main YAML file."""
     with open(main_config_path, "r") as f:
         main_config = yaml.load(f, Loader=yaml.FullLoader)
 
     configs = {}
-    configs["openai_config"] = OpenAIConfig(
-        engine_name=main_config["openai_config"]["engine_name"],
-        max_tokens=main_config["openai_config"]["max_tokens"],
-        temperature=main_config["openai_config"]["temperature"],
-        stop=main_config["openai_config"]["stop"],
-        top_p=main_config["openai_config"]["top_p"],
+    configs["llm_config"] = LLMConfig(
+        engine_name=main_config["llm_config"]["engine_name"],
+        max_tokens=main_config["llm_config"]["max_tokens"],
+        temperature=main_config["llm_config"]["temperature"],
     )
     configs["distiller_config"] = DistillerConfig(
         folder=main_config["distiller"]["folder"],
-        prompt_components=main_config["distiller"]["prompt_components"],
-        openai_config=configs["openai_config"],
+        llm_config=configs["llm_config"],
         system_message=main_config["distiller"]["system_message"],
         instruction=main_config["distiller"]["instruction"],
     )
     configs["instructor_config"] = InstructorConfig(
         engine_name=main_config["instructor"]["engine_name"],
         tokenizer=main_config["instructor"]["tokenizer"],
-        instruction_template=main_config["instructor"]["instruction_template"],
+        template=main_config["instructor"]["template"],
         separator=main_config["instructor"]["separator"],
         max_instructions=main_config["instructor"]["max_instructions"],
         temperature=main_config["instructor"]["temperature"],
@@ -103,6 +47,7 @@ def load_configurations(main_config_path: str):
         engine_name=main_config["coder"]["engine_name"],
         max_length=main_config["coder"]["max_length"],
         eos=main_config["coder"]["eos"],
+        llm_config=configs["llm_config"],
     )
     configs["trainer_config"] = TrainerConfig(
         device=main_config["trainer"]["device"],

@@ -1,5 +1,5 @@
-import os
 from typing import List
+import os
 import torch
 from transformers import (
     AutoModelForCausalLM,
@@ -11,12 +11,15 @@ from GFlowFuzz.logger import GlobberLogger, LEVEL
 import time
 import traceback
 from utils import CoderConfig
+from client_LLM import get_client
+from .__init__ import BaseCoder
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"  # disable warning
 EOF_STRINGS = ["<|endoftext|>", "###"]
 
 
-class BaseCoder:
+
+class BaseCoderLocal(BaseCoder):
     def __init__(
         self,
         coder_config: CoderConfig, 
@@ -26,12 +29,13 @@ class BaseCoder:
         self.model = AutoModelForCausalLM.from_pretrained(
             coder_config.engine_name,
             torch_dtype=torch.bfloat16,
-        ).to(self.device)
+            device=self.device,
+        )
         self.eos = EOF_STRINGS + coder_config.eos
         self.max_length = coder_config.max_length
         self.skip_special_tokens = False
         self.logger = GlobberLogger("coder.log", level=LEVEL.INFO)
-        self.logger.log("BaseCoder initialized.", LEVEL.INFO)
+        self.logger.log("BaseCoderLocal initialized.", LEVEL.INFO)
 
     def format_prompt(self, prompt: str) -> str:
         """To be implemented by subclasses if prompt needs special formatting."""
@@ -89,3 +93,31 @@ class BaseCoder:
         except Exception as e:
             self.logger.log(f"Error during code generation: {e}\n{traceback.format_exc()}", LEVEL.INFO)
             raise
+
+
+class BaseCoderAPI(BaseCoder):
+    def __init__(self, coder_config: CoderConfig):
+        self.llm_client = get_client(coder_config.llm_config.provider, model=coder_config.llm_config.model)
+        self.config = coder_config
+        self.logger = GlobberLogger("coder_api.log", level=LEVEL.INFO)
+        self.logger.log("BaseCoderAPI initialized.", LEVEL.INFO)
+
+    def format_prompt(self, prompt: str) -> str:
+        return prompt
+
+    def generate_code(self, prompt: str, **kwargs) -> List[str]:
+        self.logger.log(f"API code generation started. prompt: {str(prompt)[:200]}", LEVEL.TRACE)
+        config = {
+            "model": self.config.llm_config.model,
+            "messages": [{"role": "user", "content": self.format_prompt(prompt)}],
+        }
+        config.update(kwargs)
+        response = self.llm_client.request(config)
+        # For OpenAI, response.choices[0].message.content; for DeepInfra, response.json()[...]
+        if hasattr(response, 'choices'):
+            return [response.choices[0].message.content]
+        elif hasattr(response, 'json'):
+            data = response.json()
+            return [data["choices"][0]["message"]["content"]]
+        else:
+            return [str(response)]

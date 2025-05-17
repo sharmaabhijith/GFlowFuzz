@@ -3,12 +3,11 @@
 
 distiller:
   folder: "distiller_outputs"       # Directory for distiller prompts
-  openai_config: 
+  llm_config: 
     engine_name: "gpt-3.5-turbo"
     max_tokens: 200
     temperature: 2
-    stop: null
-    top_p: 1.0
+    api_driven: false
   system_message: "You are an auto-prompting tool"
   instruction: "Please summarize the above documentation in a concise manner to describe the usage and functionality of the target"
 
@@ -30,6 +29,11 @@ coder:
   temperature: 1                    # Sampling temperature for generation by the main Coder LM
   eos: ""
   max_length: 1024                  # Maximum length of generated code by the main Coder LM
+  llm_config: 
+    engine_name: "gpt-3.5-turbo"
+    max_tokens: 200
+    temperature: 2
+    api_driven: false
 
 # SUT configuration moved to its own top-level section for clarity
 SUT:

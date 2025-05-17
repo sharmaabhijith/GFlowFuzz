@@ -6,8 +6,7 @@ from typing import List, Union
 import torch
 
 from GFlowFuzz.SUT.base_sut import FResult, BaseSUT
-from GFlowFuzz.SUT.utils import SUTConfig
-from GFlowFuzz.utils import LEVEL, comment_remover
+from GFlowFuzz.SUT.utils import SUTConfig, comment_remover
 from GFlowFuzz.oracle.coverage import CoverageManager, Tool
 import pathlib
 

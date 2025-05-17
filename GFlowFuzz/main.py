@@ -5,9 +5,6 @@ import datetime
 from trainer import Fuzzer
 from utils import load_configurations
 
-openai.api_key = os.environ.get("OPENAI_API_KEY", "dummy")
-client = openai.OpenAI()
-
 
 @click.command()
 @click.option("--main_config", default="config/main.yaml", help="Path to config YAML.")

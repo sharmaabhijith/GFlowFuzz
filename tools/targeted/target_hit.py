@@ -1,8 +1,7 @@
 # check the target hit rate of the generated fuzzing inputs
 
 import glob
-
-from GFlowFuzz.util.util import comment_remover, natural_sort_key
+from GFlowFuzz.SUT.utils import comment_remover
 
 
 def filter(code, begin, target, lang="c") -> bool:

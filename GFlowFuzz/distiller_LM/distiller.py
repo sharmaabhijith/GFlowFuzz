@@ -3,11 +3,11 @@ from typing import List, Dict, Optional
 from rich.progress import track
 import time
 import traceback
-from GFlowFuzz.distiller_LM.utils import OpenAIConfig, DistillerConfig, request_engine
+from GFlowFuzz.distiller_LM.utils import DistillerConfig
 from GFlowFuzz.logger import GlobberLogger, LEVEL
 from GFlowFuzz.coder_LM import BaseCoder
 from GFlowFuzz.SUT import BaseSUT
-
+from GFlowFuzz.client_LLM import FactoryLLMClient
 
 
 class Distiller:
@@ -38,8 +38,8 @@ class Distiller:
         self.logger.log("Distiller initialized.", LEVEL.INFO)
         self.system_message = distiller_config.system_message
         self.instruction = distiller_config.instruction
-        self.openai_config = distiller_config.openai_config
-        self.engine_name = distiller_config.openai_config.engine_name
+        self.llm_config = distiller_config.llm_config
+        self.engine_name = distiller_config.llm_config.engine_name
         self.coder = coder
         self.SUT = SUT
         # Create prompts directory if it doesn't exist
@@ -93,7 +93,7 @@ class Distiller:
                 self.logger.log(f"Loaded best_prompt.txt: {str(best_prompt)[:300]}", LEVEL.VERBOSE)
                 return best_prompt
             self.logger.log("Use auto-prompting prompt ... ", level=LEVEL.INFO)
-            config = self.openai_config(
+            config = self.llm_config(
                 self._create_auto_prompt_message(message),
                 max_tokens=max_tokens,
                 temperature=0.0,
@@ -101,8 +101,7 @@ class Distiller:
             )
             self.logger.log(f"OpenAI config for greedy prompt: {str(config)[:300]}", LEVEL.TRACE)
             response = request_engine(config)
-            self.logger.log(f"Greedy prompt API response: {str(response)[:300]}", LEVEL.TRACE)
-            greedy_prompt = self.SUT.wrap_prompt(response.choices[0].message.content)
+            greedy_prompt = self.SUT.wrap_prompt(response.content)
             self.logger.log(f"Greedy prompt: {str(greedy_prompt)[:300]}", LEVEL.VERBOSE)
             with open(
                 self.folder + "/prompts/greedy_prompt.txt", "w", encoding="utf-8"
@@ -117,7 +116,7 @@ class Distiller:
                 f.write(f"greedy score: {str(best_score)}")
             for i in track(range(num_samples), description="Generating prompts..."):
                 self.logger.log(f"Generating sample prompt {i}", LEVEL.TRACE)
-                config = self.openai_config(
+                config = self.llm_config(
                     self._create_auto_prompt_message(message),
                     max_tokens=max_tokens,
                     temperature=1.0,
@@ -125,8 +124,7 @@ class Distiller:
                 )
                 self.logger.log(f"OpenAI config for sample {i}: {str(config)[:300]}", LEVEL.TRACE)
                 response = request_engine(config)
-                self.logger.log(f"Sample {i} API response: {str(response)[:300]}", LEVEL.TRACE)
-                prompt = self.SUT.wrap_prompt(response.choices[0].message.content)
+                prompt = self.SUT.wrap_prompt(response.content)
                 self.logger.log(f"Sample {i} prompt: {str(prompt)[:300]}", LEVEL.VERBOSE)
                 with open(
                     self.folder + "/prompts/prompt_{}.txt".format(i),
