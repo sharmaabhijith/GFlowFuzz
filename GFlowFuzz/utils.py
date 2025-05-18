@@ -22,14 +22,10 @@ def load_configurations(main_config_path: str):
         main_config = yaml.load(f, Loader=yaml.FullLoader)
 
     configs = {}
-    configs["llm_config"] = LLMConfig(
-        engine_name=main_config["llm_config"]["engine_name"],
-        max_tokens=main_config["llm_config"]["max_tokens"],
-        temperature=main_config["llm_config"]["temperature"],
-    )
     configs["distiller_config"] = DistillerConfig(
         folder=main_config["distiller"]["folder"],
-        llm_config=configs["llm_config"],
+        api_name=main_config["distiller"]["api_name"],
+        llm_config=LLMConfig(**main_config["distiller"]["llm_config"]),
         system_message=main_config["distiller"]["system_message"],
         instruction=main_config["distiller"]["instruction"],
     )
@@ -43,11 +39,10 @@ def load_configurations(main_config_path: str):
         max_len=main_config["instructor"]["max_len"],
     )
     configs["coder_config"] = CoderConfig(
-        temperature=main_config["coder"]["temperature"],
-        engine_name=main_config["coder"]["engine_name"],
-        max_length=main_config["coder"]["max_length"],
-        eos=main_config["coder"]["eos"],
-        llm_config=configs["llm_config"],
+        system_message=main_config["coder"]["system_message"],
+        instruction=main_config["coder"]["instruction"],
+        api_name=main_config["coder"]["api_name"],
+        llm_config=LLMConfig(**main_config["coder"]["llm_config"]),
     )
     configs["trainer_config"] = TrainerConfig(
         device=main_config["trainer"]["device"],

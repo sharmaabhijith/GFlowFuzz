@@ -11,7 +11,7 @@ from GFlowFuzz.logger import GlobberLogger, LEVEL
 import time
 import traceback
 from utils import CoderConfig
-from client_LLM import get_client
+from client_LLM import get_LLM_client
 from .__init__ import BaseCoder
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"  # disable warning
@@ -34,7 +34,7 @@ class BaseCoderLocal(BaseCoder):
         self.eos = EOF_STRINGS + coder_config.eos
         self.max_length = coder_config.max_length
         self.skip_special_tokens = False
-        self.logger = GlobberLogger("coder.log", level=LEVEL.INFO)
+        self.logger = GlobberLogger("coder_local.log", level=LEVEL.INFO)
         self.logger.log("BaseCoderLocal initialized.", LEVEL.INFO)
 
     def format_prompt(self, prompt: str) -> str:
@@ -97,27 +97,24 @@ class BaseCoderLocal(BaseCoder):
 
 class BaseCoderAPI(BaseCoder):
     def __init__(self, coder_config: CoderConfig):
-        self.llm_client = get_client(coder_config.llm_config.provider, model=coder_config.llm_config.model)
-        self.config = coder_config
+        self.llm_client = get_LLM_client(
+            api_name = coder_config.api_name, 
+            engine_name = coder_config.llm_config.engine_name
+        )
+        self.system_message = coder_config.system_message
+        self.instruction = coder_config.instruction
+        self.llm_config = coder_config.llm_config
         self.logger = GlobberLogger("coder_api.log", level=LEVEL.INFO)
         self.logger.log("BaseCoderAPI initialized.", LEVEL.INFO)
 
     def format_prompt(self, prompt: str) -> str:
         return prompt
 
-    def generate_code(self, prompt: str, **kwargs) -> List[str]:
+    def generate_code(self, prompt: str) -> List[str]:
         self.logger.log(f"API code generation started. prompt: {str(prompt)[:200]}", LEVEL.TRACE)
-        config = {
-            "model": self.config.llm_config.model,
-            "messages": [{"role": "user", "content": self.format_prompt(prompt)}],
-        }
-        config.update(kwargs)
-        response = self.llm_client.request(config)
-        # For OpenAI, response.choices[0].message.content; for DeepInfra, response.json()[...]
-        if hasattr(response, 'choices'):
-            return [response.choices[0].message.content]
-        elif hasattr(response, 'json'):
-            data = response.json()
-            return [data["choices"][0]["message"]["content"]]
-        else:
-            return [str(response)]
+        self.llm_config.messages = [
+            {"role": "system", "content": self.system_message},
+            {"role": "user", "content": self.format_prompt(prompt) + "\n" + self.instruction}
+        ]
+        response = self.llm_client.request(self.llm_config)
+        return [response.content]

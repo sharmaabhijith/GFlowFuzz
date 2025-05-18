@@ -1,17 +1,15 @@
 from transformers import StoppingCriteria
 from dataclasses import dataclass
-from typing import Dict, List, Optional
 from client_LLM import LLMConfig
 
 
 @dataclass
 class CoderConfig:
-    engine_name: str
-    temperature: float
-    eos: List[str]
-    max_length: int
+    system_message: str
+    instruction: str
+    api_name: str
     device: str
-    llm_config: Optional[LLMConfig] = None
+    llm_config: LLMConfig
 
 class EndOfFunctionCriteria(StoppingCriteria):
     def __init__(self, start_length, eos, tokenizer, *args, **kwargs):

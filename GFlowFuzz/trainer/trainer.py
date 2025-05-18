@@ -68,25 +68,25 @@ class Fuzzer:
         # Create output folder if it doesn't exist
         os.makedirs(self.output_folder, exist_ok=True)
         # Initialize the 3 modules of the framework
-        self.coder = Coder(coder_config)
+        self.coder = Coder(coder_config, api_driven=coder_config.api_name != "local")
         self.distiller = Distiller(distiller_config, self.coder, self.SUT)
-        self.instructor = Instructor(instructor_config)
-        self.oracle = Inspector(self.SUT)
-        self.ibuffer = InstructionBuffer(
-            max_size=trainer_config.buffer_size,
-            prioritization=trainer_config.prioritization
-        )
-        # Setup instructor's model, optimizer, scheduler, tokenizer, and projection layer
-        self.instructor.setup_model_and_optimizer(trainer_config)
-        # Save reference for checkpointing
-        self.checkpointer = CheckpointManager(
-            save_dir=self.output_folder,
-            exp_name="instructor",
-            model=self.instructor.model,
-            optimizer=self.instructor.optimizer,
-            scheduler=self.instructor.scheduler,
-            ibuffer=self.ibuffer
-        )
+        # self.instructor = Instructor(instructor_config)
+        # self.oracle = Inspector(self.SUT)
+        # self.ibuffer = InstructionBuffer(
+        #     max_size=trainer_config.buffer_size,
+        #     prioritization=trainer_config.prioritization
+        # )
+        # # Setup instructor's model, optimizer, scheduler, tokenizer, and projection layer
+        # self.instructor.setup_model_and_optimizer(trainer_config)
+        # # Save reference for checkpointing
+        # self.checkpointer = CheckpointManager(
+        #     save_dir=self.output_folder,
+        #     exp_name="instructor",
+        #     model=self.instructor.model,
+        #     optimizer=self.instructor.optimizer,
+        #     scheduler=self.instructor.scheduler,
+        #     ibuffer=self.ibuffer
+        # )
         # Initialize the fuzzing variables
         self.count = 0
         self.start_time = 0
@@ -94,12 +94,12 @@ class Fuzzer:
         self.logger.log("Fuzzer initialized.", LEVEL.INFO)
         self.logger.log(f"SUTConfig: {SUT_config}", LEVEL.TRACE)
         self.logger.log(f"FuzzerConfig: {fuzzer_config}", LEVEL.TRACE)
+        self.logger.log(f"CoderConfig: {coder_config}", LEVEL.TRACE)
         self.logger.log(f"TrainerConfig: {trainer_config}", LEVEL.TRACE)
         self.logger.log(f"DistillerConfig: {distiller_config}", LEVEL.TRACE)
-        self.logger.log(f"InstructorConfig: {instructor_config}", LEVEL.TRACE)
-        self.logger.log(f"CoderConfig: {coder_config}", LEVEL.TRACE)
-        self.logger.log(f"Output folder: {self.output_folder}", LEVEL.TRACE)
-        self.logger.log(f"Resume: {self.resume}, OTF: {self.otf}", LEVEL.TRACE)
+        # self.logger.log(f"InstructorConfig: {instructor_config}", LEVEL.TRACE)
+        # self.logger.log(f"Output folder: {self.output_folder}", LEVEL.TRACE)
+        # self.logger.log(f"Resume: {self.resume}, OTF: {self.otf}", LEVEL.TRACE)
         
 
     def __get_resume_count(self) -> int:
@@ -158,57 +158,57 @@ class Fuzzer:
             self.logger.log(f"Initial prompt: {str(self.initial_prompt)[:300]}", LEVEL.VERBOSE)
             self.prompt = self.initial_prompt
             self.start_time = time.time()
-            with Progress(
-                TextColumn("Fuzzing • [progress.percentage]{task.percentage:>3.0f}%"),
-                BarColumn(),
-                MofNCompleteColumn(),
-                TextColumn("•"),
-                TimeElapsedColumn(),
-            ) as p:
-                task = p.add_task("Fuzzing", total=self.number_of_iterations)
-                self.count = self.__get_resume_count()
-                if self.resume and self.count > 0:
-                    log = f" (resuming from {self.count})"
-                    p.console.print(log)
-                    self.logger.log(f"Resuming from count {self.count}", LEVEL.INFO)
-                p.update(task, advance=self.count)
-                while (
-                    self.count < self.number_of_iterations
-                    ) and (
-                    time.time() - self.start_time < self.total_time * 3600
-                    ):
-                    iter_start = time.time()
-                    self.logger.log(f"Fuzzing iteration {self.count}", LEVEL.TRACE)
-                    self.logger.log(f"Prompt for iteration: {str(self.prompt)[:300]}", LEVEL.VERBOSE)
-                    instructions, log_probs, log_zs = self.instructor.generate_instruction_sequence(self.prompt)
-                    self.logger.log(f"Instructions: {str(instructions)[:300]}", LEVEL.VERBOSE)
-                    self.logger.log(f"Log_probs: {str(log_probs)[:300]}", LEVEL.VERBOSE)
-                    self.logger.log(f"Log_zs: {str(log_zs)[:300]}", LEVEL.VERBOSE)
-                    fos = self.coder.generate_code(prompt=instructions)
-                    self.logger.log(f"Generated code samples: {str(fos)[:500]}", LEVEL.VERBOSE)
-                    for fo in fos:
-                        self.logger.log(f"Evaluating code sample: {str(fo)[:300]}", LEVEL.TRACE)
-                        _, _, reward = self.oracle.inspect(
-                            fo = fo,
-                            output_folder = self.output_folder,
-                            count = self.count,
-                            otf = self.otf,
-                        )
-                        self.logger.log(f"Reward: {reward}", LEVEL.VERBOSE)
-                        loss_value = self.instructor.train_step(
-                            log_prob_sum=sum(log_zs), 
-                            log_prob_sum=sum(log_probs), 
-                            reward=reward, 
-                            max_norm=self.max_norm
-                        )
-                        self.logger.log(f"Loss value: {loss_value}", LEVEL.VERBOSE)
-                        if self.count % 100 == 0:
-                            self.logger.log(f"Checkpoint saved at step {self.count}", LEVEL.INFO)
-                        iter_end = time.time()
-                        self.logger.log(f"Iteration {self.count} duration: {iter_end - iter_start:.2f}s", LEVEL.TRACE)
-                        self.count += 1
-            end_time = time.time()
-            self.logger.log(f"Fuzzer training completed in {end_time - start_time:.2f}s.", LEVEL.INFO)
+            # with Progress(
+            #     TextColumn("Fuzzing • [progress.percentage]{task.percentage:>3.0f}%"),
+            #     BarColumn(),
+            #     MofNCompleteColumn(),
+            #     TextColumn("•"),
+            #     TimeElapsedColumn(),
+            # ) as p:
+            #     task = p.add_task("Fuzzing", total=self.number_of_iterations)
+            #     self.count = self.__get_resume_count()
+            #     if self.resume and self.count > 0:
+            #         log = f" (resuming from {self.count})"
+            #         p.console.print(log)
+            #         self.logger.log(f"Resuming from count {self.count}", LEVEL.INFO)
+            #     p.update(task, advance=self.count)
+            #     while (
+            #         self.count < self.number_of_iterations
+            #         ) and (
+            #         time.time() - self.start_time < self.total_time * 3600
+            #         ):
+            #         iter_start = time.time()
+            #         self.logger.log(f"Fuzzing iteration {self.count}", LEVEL.TRACE)
+            #         self.logger.log(f"Prompt for iteration: {str(self.prompt)[:300]}", LEVEL.VERBOSE)
+            #         instructions, log_probs, log_zs = self.instructor.generate_instruction_sequence(self.prompt)
+            #         self.logger.log(f"Instructions: {str(instructions)[:300]}", LEVEL.VERBOSE)
+            #         self.logger.log(f"Log_probs: {str(log_probs)[:300]}", LEVEL.VERBOSE)
+            #         self.logger.log(f"Log_zs: {str(log_zs)[:300]}", LEVEL.VERBOSE)
+            #         fos = self.coder.generate_code(prompt=instructions)
+            #         self.logger.log(f"Generated code samples: {str(fos)[:500]}", LEVEL.VERBOSE)
+            #         for fo in fos:
+            #             self.logger.log(f"Evaluating code sample: {str(fo)[:300]}", LEVEL.TRACE)
+            #             _, _, reward = self.oracle.inspect(
+            #                 fo = fo,
+            #                 output_folder = self.output_folder,
+            #                 count = self.count,
+            #                 otf = self.otf,
+            #             )
+            #             self.logger.log(f"Reward: {reward}", LEVEL.VERBOSE)
+            #             loss_value = self.instructor.train_step(
+            #                 log_prob_sum=sum(log_zs), 
+            #                 log_prob_sum=sum(log_probs), 
+            #                 reward=reward, 
+            #                 max_norm=self.max_norm
+            #             )
+            #             self.logger.log(f"Loss value: {loss_value}", LEVEL.VERBOSE)
+            #             if self.count % 100 == 0:
+            #                 self.logger.log(f"Checkpoint saved at step {self.count}", LEVEL.INFO)
+            #             iter_end = time.time()
+            #             self.logger.log(f"Iteration {self.count} duration: {iter_end - iter_start:.2f}s", LEVEL.TRACE)
+            #             self.count += 1
+            # end_time = time.time()
+            # self.logger.log(f"Fuzzer training completed in {end_time - start_time:.2f}s.", LEVEL.INFO)
         except Exception as e:
             self.logger.log(f"Error during training: {e}\n{traceback.format_exc()}", LEVEL.INFO)
             raise
