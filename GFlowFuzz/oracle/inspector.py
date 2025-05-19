@@ -3,6 +3,7 @@ from logger import GlobberLogger, LEVEL
 import os
 import time
 import traceback
+from .utils import write_to_file
 
 class Inspector:
     def __init__(self, sut: BaseSUT):
@@ -10,7 +11,7 @@ class Inspector:
         self.logger = GlobberLogger("inspector.log", level=LEVEL.INFO)
         self.logger.log("Inspector initialized.", LEVEL.INFO)
 
-    def inspect(self, fo: str, output_folder: str, count: int, otf: bool):
+    def inspect(self, fo: str, output_folder: str, target_name: str, count: int, otf: bool):
         """
         Handle a single fuzzing result, writing it to file and validating if needed.
         
@@ -20,13 +21,17 @@ class Inspector:
         Returns:
             Tuple of (validation_result, message, reward) if otf is True, else (None, None, None)
         """
-        self.logger.log(f"inspect called with fo: {str(fo)[:200]}, output_folder: {output_folder}, count: {count}, otf: {otf}", LEVEL.TRACE)
+        self.logger.log(
+            f"inspect called with fo: {str(fo)[:200]}, output_folder: {output_folder}, count: {count}, otf: {otf}",
+            LEVEL.TRACE
+        )
         start_time = time.time()
+        file_name = os.path.join(output_folder, f"{target_name}_fuzz_outputs", f"{count}.fuzz")
+        write_to_file(fo, file_name)
         try:
             if not otf:
                 self.logger.log("OTF is False, skipping inspection.", LEVEL.TRACE)
                 return None, None, None
-            file_name = os.path.join(output_folder, f"{count}.fuzz")
             self.logger.log(f"Inspecting file: {file_name}", LEVEL.TRACE)
             f_result, message, reward = self.sut.validate_individual(file_name)
             self.logger.log(f"Validation result: {f_result}, message: {str(message)[:200]}, reward: {reward}", LEVEL.VERBOSE)

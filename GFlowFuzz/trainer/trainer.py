@@ -193,6 +193,7 @@ class Fuzzer:
                         f_result, sut_message, reward = self.oracle.inspect(
                             fo = fo,
                             output_folder = self.output_folder,
+                            target_name = self.SUT.target_name,
                             count = self.count,
                             otf = self.otf,
                         )
