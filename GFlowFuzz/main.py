@@ -9,11 +9,11 @@ from utils import load_configurations
 @click.command()
 @click.option("--main_config", default="config/main.yaml", help="Path to config YAML.")
 def main(main_config: str):
-    exp_name = main_config.get("exp_name", "exp")
+    configs = load_configurations(main_config)
+    exp_name = configs["exp_name"]
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     log_dir = os.path.join("logs", f"{exp_name}_{timestamp}")
     set_global_log_dir(log_dir)
-    configs = load_configurations(main_config)
 
     fuzzer = Fuzzer(
         SUT_config=configs["SUT_config"],

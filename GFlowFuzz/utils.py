@@ -22,6 +22,7 @@ def load_configurations(main_config_path: str):
         main_config = yaml.load(f, Loader=yaml.FullLoader)
 
     configs = {}
+    configs["exp_name"] = main_config.get("exp_name", "exp")
     configs["distiller_config"] = DistillerConfig(
         folder=main_config["distiller"]["folder"],
         api_name=main_config["distiller"]["api_name"],

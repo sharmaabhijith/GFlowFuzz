@@ -1,5 +1,6 @@
 # Configuration file for the main script
 # This file contains detailed configurations for all LM modules and other required settings.
+exp_name: "autoprompt_test"
 
 distiller:
   folder: "distiller_outputs"       # Directory for distiller prompts
