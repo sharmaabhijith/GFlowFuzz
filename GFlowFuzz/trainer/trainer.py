@@ -43,6 +43,7 @@ class Fuzzer:
         coder_config: CoderConfig,
         trainer_config: TrainerConfig,
         target_name: str,
+        output_folders: dict,
     ):
         """
         Initialize the fuzzer with SUT and configuration parameters.
@@ -62,15 +63,21 @@ class Fuzzer:
         self.SUT = make_SUT(SUT_config, target_name)
         self.number_of_iterations = fuzzer_config.number_of_iterations
         self.total_time = fuzzer_config.total_time
-        self.output_folder = fuzzer_config.output_folder
+        self.output_folders = output_folders
         self.resume = fuzzer_config.resume
         self.otf = fuzzer_config.otf
         self.max_norm = trainer_config.max_norm
-        # Create output folder if it doesn't exist
-        os.makedirs(self.output_folder, exist_ok=True)
         # Initialize the 3 modules of the framework
-        self.coder = Coder(coder_config, api_driven=coder_config.api_name != "local")
-        self.distiller = Distiller(distiller_config, self.coder, self.SUT)
+        self.coder = Coder(
+            coder_config=coder_config, 
+            api_driven=coder_config.api_name != "local"
+        )
+        self.distiller = Distiller(
+            distiller_config=distiller_config, 
+            coder=self.coder, 
+            SUT=self.SUT,
+            output_folder=self.output_folders["distilled_prompts"]
+        )
         # self.instructor = Instructor(instructor_config)
         self.oracle = Inspector(self.SUT)
         # self.ibuffer = InstructionBuffer(
@@ -81,7 +88,7 @@ class Fuzzer:
         # self.instructor.setup_model_and_optimizer(trainer_config)
         # # Save reference for checkpointing
         # self.checkpointer = CheckpointManager(
-        #     save_dir=self.output_folder,
+        #     save_dir=self.output_folders["checkpoints"],
         #     exp_name="instructor",
         #     model=self.instructor.model,
         #     optimizer=self.instructor.optimizer,
@@ -99,7 +106,6 @@ class Fuzzer:
         self.logger.log(f"TrainerConfig: {trainer_config}", LEVEL.TRACE)
         self.logger.log(f"DistillerConfig: {distiller_config}", LEVEL.TRACE)
         # self.logger.log(f"InstructorConfig: {instructor_config}", LEVEL.TRACE)
-        # self.logger.log(f"Output folder: {self.output_folder}", LEVEL.TRACE)
         # self.logger.log(f"Resume: {self.resume}, OTF: {self.otf}", LEVEL.TRACE)
         
 
@@ -116,7 +122,7 @@ class Fuzzer:
         try:
             n_existing = [
                 int(f.split(".")[0])
-                for f in os.listdir(self.output_folder)
+                for f in os.listdir(self.output_folders["fuzz_code"])
                 if f.endswith(".fuzz")
             ]
             if not n_existing:
@@ -192,8 +198,7 @@ class Fuzzer:
                         self.logger.log(f"Evaluating code sample: {str(fo)[:300]}", LEVEL.TRACE)
                         f_result, sut_message, reward = self.oracle.inspect(
                             fo = fo,
-                            output_folder = self.output_folder,
-                            target_name = self.SUT.target_name,
+                            output_folder = self.output_folders["fuzz_code"],
                             count = self.count,
                             otf = self.otf,
                         )

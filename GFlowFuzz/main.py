@@ -3,10 +3,15 @@ import click
 from logger import set_global_log_dir
 import datetime
 from trainer import Fuzzer
-from utils import load_configurations
+from utils import load_configurations, make_ouput_dirs
 
 @click.command()
-@click.option("--target_name", default="../../gcc-13/bin/gcc", required=True, help="Full path to the compiler/interpreter.")
+@click.option(
+    "--target_name", 
+    default="../../gcc-13/bin/gcc", 
+    required=True, 
+    help="Full path to the compiler/interpreter."
+)
 def main(target_name: str):
     # Derive target from basename
     binary = os.path.basename(target_name)
@@ -34,8 +39,9 @@ def main(target_name: str):
     # Set up logs
     exp_name = configs["exp_name"]
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_dir = os.path.join("logs", f"{exp_name}_{timestamp}")
-    set_global_log_dir(log_dir)
+    expdump_dir = os.path.join("ExpDump", binary, f"{exp_name}")
+    folder_path_dict = make_ouput_dirs(expdump_dir)
+    set_global_log_dir(os.path.join(expdump_dir, timestamp, "logs"))
 
     # Instantiate and run fuzzer
     fuzzer = Fuzzer(
@@ -45,7 +51,8 @@ def main(target_name: str):
         instructor_config=configs["instructor_config"],
         coder_config=configs["coder_config"],
         trainer_config=configs["trainer_config"],
-        target_name=target_name  # pass directly to fuzzer
+        target_name=target_name,
+        output_folders=folder_path_dict
     )
     fuzzer.train()
 

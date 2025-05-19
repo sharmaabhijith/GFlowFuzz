@@ -5,7 +5,6 @@ from typing import Dict, Any
 class FuzzerConfig:
     number_of_iterations: int
     total_time: int
-    output_folder: str
     log_level: int
     resume: bool = False
     otf: bool = False

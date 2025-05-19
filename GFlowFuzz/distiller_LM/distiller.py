@@ -20,6 +20,7 @@ class Distiller:
         distiller_config: DistillerConfig,
         coder: BaseCoder,
         SUT: BaseSUT,
+        output_folder: str,
     ) -> None:
         """
         Initialize the AutoPrompter.
@@ -33,7 +34,7 @@ class Distiller:
             system_message: System message for auto-prompting
             instruction: Instruction for auto-prompting
         """
-        self.folder = distiller_config.folder
+        self.folder = output_folder
         self.logger = GlobberLogger("distiller.log", level=LEVEL.INFO)
         self.logger.log("Distiller initialized.", LEVEL.INFO)
         self.engine_name = distiller_config.llm_config.engine_name

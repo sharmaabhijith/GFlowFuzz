@@ -11,7 +11,7 @@ class Inspector:
         self.logger = GlobberLogger("inspector.log", level=LEVEL.INFO)
         self.logger.log("Inspector initialized.", LEVEL.INFO)
 
-    def inspect(self, fo: str, output_folder: str, target_name: str, count: int, otf: bool):
+    def inspect(self, fo: str, output_folder: str, count: int, otf: bool):
         """
         Handle a single fuzzing result, writing it to file and validating if needed.
         
@@ -26,7 +26,7 @@ class Inspector:
             LEVEL.TRACE
         )
         start_time = time.time()
-        file_name = os.path.join(output_folder, f"{target_name}_fuzz_outputs", f"{count}.fuzz")
+        file_name = os.path.join(output_folder, f"{count}.fuzz")
         write_to_file(fo, file_name)
         try:
             if not otf:

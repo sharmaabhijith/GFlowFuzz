@@ -1,16 +1,17 @@
 # Configuration file for the main script
 # This file contains detailed configurations for all LM modules and other required settings.
-exp_name: "autoprompt_test"
+exp_name: "Pipeline_test"
 
 distiller:
   folder: "distiller_outputs"       # Directory for distiller prompts
   api_name: "deepinfra"
   llm_config: 
     engine_name: "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
-    max_tokens: 200
+    max_tokens: 500
     temperature: 2
+    messages: []
   system_message: "You are an auto-prompting tool"
-  instruction: "Please summarize the above documentation in a concise manner to describe the usage and functionality of the target"
+  instruction: "Please summarize the documentation provided in a concise manner to describe the usage and functionality of the target"
 
 instructor:
   engine_name: "gpt2"               # Model name for the instructor
@@ -24,34 +25,35 @@ instructor:
   max_instructions: 10              # Maximum number of instructions in a sequence
   temperature: 1.0                  # Sampling temperature for instructions
   max_len: 50                       # Maximum length of each instruction
+  device: ""
 
 coder:
   api_name: "deepinfra"
   system_message: "You are an expert and advanced coding tool."
-  instruction: "Please generate a correct and valid code following the given task instructions."
+  instruction: "/* Please create a advanced C program following all the instructions closely. I need the code to have good coverage for testing compiler for potential discovery of bugs.*/"
+  device: ""
   llm_config: 
     engine_name: "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
-    max_tokens: 200
+    max_tokens: 1000
     temperature: 2
-    eos: ""
-    max_length: 1024                  # Maximum length of generated code by the main Coder LM
+    messages: []
 
 # SUT configuration moved to its own top-level section for clarity
 SUT:
   language: "c"                   # Programming language of the target
-  path_documentation: "config/documentation/c/c_std.md"  # Path to documentation for the target
+  path_documentation: "../config/documentation/c/c_std.md"  # Path to documentation for the target
   path_example_code: null         # Path to example code (if any)
-  trigger_to_generate_input: "/* Please create a advanced C program following all the instructions closely. I need the code to have good coverage for testing compiler for potential discovery of bugs.*/"  # Trigger string for generating input
+  trigger_to_generate_input: "Please generate a correct and valid code following the given task instructions."   # Trigger string for generating input
   input_hint: "#include <stdlib.h>"  # Hint for input generation
   path_hand_written_prompt: null  # Optional path to a hand-written prompt component
   SUT_string: ""                  # Description of the target (e.g. API name for prompt construction)
-  # New fields from SUTConfig
+  device: "cuda"
   timeout: 10                     # Timeout for SUT operations (e.g., validation)
   folder: "fuzz_outputs"          # Folder for SUT related outputs (e.g., temporary files, fuzz files)
   batch_size: 1                   # Batch size for code generation during SUT validation steps
   temperature: 0.8                # Temperature for code generation during SUT validation steps
   max_length: 1024                # Max length for code generation during SUT validation steps
-  log_level: "INFO"               # Logging level for SUT specific logs (INFO, TRACE, VERBOSE)
+  log_level: "VERBOSE"               # Logging level for SUT specific logs (INFO, TRACE, VERBOSE)
   template: "fuzzing_with_config_file" # Template name for prompt creation strategy
   lambda_hyper: 0.1               # Hyperparameter lambda for reward calculation
   beta1_hyper: 1.0                # Hyperparameter beta1 for reward calculation
@@ -62,7 +64,6 @@ fuzzer:
   # SUT block removed from here as it's now top-level
   number_of_iterations: 10
   total_time: 1
-  output_folder: "logs"             # General output folder for the fuzzer (distinct from SUT.folder)
   resume: false
   otf: false
   log_level: 1                      # Logging level for the Fuzzer component (maps to INFO, TRACE, VERBOSE int enum)

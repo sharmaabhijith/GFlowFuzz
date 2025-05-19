@@ -1,5 +1,7 @@
+import os
 import re
 import yaml
+import datetime
 
 from distiller_LM import DistillerConfig
 from instruct_LM import InstructorConfig
@@ -8,6 +10,23 @@ from trainer import TrainerConfig, FuzzerConfig
 from SUT import SUTConfig
 from client_LLM import LLMConfig
 from logger import LEVEL
+
+
+
+def make_ouput_dirs(
+    folder_path: str, 
+    folder_components: list[str] = ["logs", "distilled_prompts", "fuzz_code", "checkpoints"]
+    ):
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    folder_path_dict = {}
+    for fc in folder_components:
+        if fc=="distilled_prompts":
+            path = os.path.join(folder_path, fc)
+        else:
+            path = os.path.join(folder_path, timestamp, fc)
+        folder_path_dict[fc] = path
+        os.makedirs(path, exist_ok=True)
+    return folder_path_dict
 
 
 def natural_sort_key(s):
@@ -66,7 +85,6 @@ def load_configurations(main_config_path: str):
     configs["fuzzer_config"] = FuzzerConfig(
         number_of_iterations=main_config["fuzzer"]["number_of_iterations"],
         total_time=main_config["fuzzer"]["total_time"],
-        output_folder=main_config["fuzzer"]["output_folder"],
         resume=main_config["fuzzer"].get("resume", False),
         otf=main_config["fuzzer"].get("otf", False),
         log_level=main_config["fuzzer"].get("log_level", LEVEL.INFO),
