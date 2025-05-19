@@ -6,7 +6,7 @@ from openai import OpenAI
 from dataclasses import asdict
 from concurrent.futures import TimeoutError as FuturesTimeout
 from requests.exceptions import RequestException
-from GFlowFuzz.logger import GlobberLogger, LEVEL
+from logger import GlobberLogger, LEVEL
 from .utils import LLMConfig, LLMResponse
 
 

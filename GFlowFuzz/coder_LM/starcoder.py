@@ -1,6 +1,6 @@
 from typing import List
 from .base_coder import BaseCoderLocal
-from .utils import CoderConfig
+from coder_LM.utils import CoderConfig
 
 class StarCoder(BaseCoderLocal):
     def __init__(self, coder_config: CoderConfig):

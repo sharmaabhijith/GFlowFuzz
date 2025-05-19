@@ -12,9 +12,9 @@ COV_FLAGS = {
     "clang":["-fprofile-instr-generate", "-fcoverage-mapping", "-g", "-O0"],
 }
 
-cmd = [compiler, *COV_FLAGS.get(compiler, []),
-       "-x", "c", "-std=c2x", filename,
-       "-o", f"/tmp/out{self.CURRENT_TIME}"]
+# cmd = [compiler, *COV_FLAGS.get(compiler, []),
+#        "-x", "c", "-std=c2x", filename,
+#        "-o", f"/tmp/out{self.CURRENT_TIME}"]
 
 
 class CoverageManager:

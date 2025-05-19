@@ -1,13 +1,13 @@
 import os
 import click
-from GFlowFuzz.logger import set_global_log_dir
+from logger import set_global_log_dir
 import datetime
 from trainer import Fuzzer
 from utils import load_configurations
 
 
 @click.command()
-@click.option("--main_config", default="config/main.yaml", help="Path to config YAML.")
+@click.option("--main_config", default="../config/main.yaml", help="Path to config YAML.")
 def main(main_config: str):
     configs = load_configurations(main_config)
     exp_name = configs["exp_name"]

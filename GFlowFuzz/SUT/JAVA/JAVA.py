@@ -5,9 +5,9 @@ from pathlib import Path
 from re import search
 from typing import List, Union
 
-from GFlowFuzz.SUT.base_sut import FResult, BaseSUT
-from GFlowFuzz.SUT.utils import SUTConfig, comment_remover
-from GFlowFuzz.oracle.coverage import CoverageManager, Tool
+from SUT.base_sut import FResult, BaseSUT
+from SUT.utils import SUTConfig, comment_remover
+from oracle.coverage import CoverageManager, Tool
 import pathlib
 
 

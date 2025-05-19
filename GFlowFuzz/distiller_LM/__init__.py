@@ -1,3 +1,3 @@
 from .distiller import Distiller
-from .utils import DistillerConfig, OpenAIConfig
+from .utils import DistillerConfig
 

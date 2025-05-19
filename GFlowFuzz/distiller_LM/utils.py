@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from GFlowFuzz.client_LLM import LLMConfig
+from client_LLM import LLMConfig
 
 
 @dataclass

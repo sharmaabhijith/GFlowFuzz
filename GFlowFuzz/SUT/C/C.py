@@ -3,9 +3,9 @@ import subprocess
 from typing import List
 import pathlib
 
-from GFlowFuzz.SUT.base_sut import FResult, BaseSUT
-from GFlowFuzz.oracle import CoverageManager, Tool
-from GFlowFuzz.SUT.utils import SUTConfig, comment_remover
+from SUT.base_sut import FResult, BaseSUT
+from oracle import CoverageManager, Tool
+from SUT.utils import SUTConfig, comment_remover
 
 main_code = """
 int main(){
@@ -60,7 +60,7 @@ class C_SUT(BaseSUT):
         super().__init__(sut_config)
         self.SYSTEM_MESSAGE = "You are a C Fuzzer"
         self.prompt_used = self._create_prompt_from_config(sut_config)
-        self.coverage_manager = CoverageManager(Tool.GCC, pathlib.Path(f"/tmp/out{self.CURRENT_TIME}"))
+        #self.coverage_manager = CoverageManager(Tool.GCC, pathlib.Path(f"/tmp/out{self.CURRENT_TIME}"))
         self.prev_coverage = 0
         self.lambda_ = sut_config.lambda_hyper
         self.beta1_ = sut_config.beta1_hyper
@@ -160,12 +160,14 @@ class C_SUT(BaseSUT):
 
     def validate_individual(self, filename) -> (FResult, str, float):
         fresult, msg = self.validate_compiler(self.target_name, filename)
-        self.coverage_manager.run_once()
-        new_cov = self.coverage_manager.update_total()
-        coverage_diff = new_cov - self.prev_coverage
+        #self.coverage_manager.run_once()
+        #new_cov = self.coverage_manager.update_total()
+        #coverage_diff = new_cov - self.prev_coverage
         bug = 1 if fresult in (FResult.FAILURE, FResult.ERROR) else 0
-        reward = coverage_diff + self.lambda_ * new_cov + self.beta1_ * bug
-        self.prev_coverage = new_cov
+        #reward = coverage_diff + self.lambda_ * new_cov + self.beta1_ * bug
+        #self.prev_coverage = new_cov
+        new_cov = 0
+        reward = self.beta1_ * bug
         if fresult == FResult.SAFE:
             return FResult.SAFE, f"its safe\nCoverage: {new_cov}", reward
         elif fresult == FResult.ERROR:

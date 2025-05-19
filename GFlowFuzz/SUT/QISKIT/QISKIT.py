@@ -9,10 +9,10 @@ from typing import List, Tuple, Union
 import time
 import traceback
 
-from GFlowFuzz.SUT.base_sut import FResult, BaseSUT
-from GFlowFuzz.SUT.utils import SUTConfig
-from GFlowFuzz.logger import GlobberLogger, LEVEL
-from GFlowFuzz.oracle.coverage import CoverageManager, Tool
+from SUT.base_sut import FResult, BaseSUT
+from SUT.utils import SUTConfig
+from logger import GlobberLogger, LEVEL
+from oracle.coverage import CoverageManager, Tool
 import pathlib
 
 # create an enum with some code snippets

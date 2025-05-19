@@ -1,5 +1,5 @@
-from GFlowFuzz.SUT.base_sut import FResult, BaseSUT
-from GFlowFuzz.logger import GlobberLogger, LEVEL
+from SUT.base_sut import FResult, BaseSUT
+from logger import GlobberLogger, LEVEL
 import os
 import time
 import traceback

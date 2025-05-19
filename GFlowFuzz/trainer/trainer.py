@@ -25,7 +25,7 @@ from instruct_LM import Instructor, InstructorConfig, InstructionBuffer
 from coder_LM import Coder, CoderConfig
 from SUT import make_SUT
 from oracle import Inspector
-
+from logger import LEVEL
 from .utils import TrainerConfig, FuzzerConfig, SUTConfig
 from .checkpointer import CheckpointManager
 from GFlowFuzz.logger import GlobberLogger, LEVEL

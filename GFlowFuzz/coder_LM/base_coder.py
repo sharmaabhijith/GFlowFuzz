@@ -6,17 +6,22 @@ from transformers import (
     AutoTokenizer,
     StoppingCriteriaList,
 )
-from coder_LM.utils import EndOfFunctionCriteria
-from GFlowFuzz.logger import GlobberLogger, LEVEL
 import time
 import traceback
-from utils import CoderConfig
+from typing import List
+from abc import ABC, abstractmethod
+from logger import GlobberLogger, LEVEL
 from client_LLM import get_LLM_client
-from .__init__ import BaseCoder
+from coder_LM.utils import EndOfFunctionCriteria, CoderConfig
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"  # disable warning
 EOF_STRINGS = ["<|endoftext|>", "###"]
 
+
+class BaseCoder(ABC):
+    @abstractmethod
+    def generate_code(self, prompt: str, **kwargs) -> List[str]:
+        pass
 
 
 class BaseCoderLocal(BaseCoder):

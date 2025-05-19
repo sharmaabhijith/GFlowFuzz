@@ -1,14 +1,8 @@
-from typing import List
-from abc import ABC, abstractmethod
 from .starcoder import StarCoder
 from .deepseek import DeepSeekCoder
 from .utils import CoderConfig
-from .base_coder import BaseCoderLocal, BaseCoderAPI
+from .base_coder import BaseCoderLocal, BaseCoderAPI, BaseCoder
 
-class BaseCoder(ABC):
-    @abstractmethod
-    def generate_code(self, prompt: str, **kwargs) -> List[str]:
-        pass
 
 def Coder(coder_config: CoderConfig, api_driven: bool = True) -> BaseCoder:
     """Returns a coder coder instance (optional: using the configuration file)."""

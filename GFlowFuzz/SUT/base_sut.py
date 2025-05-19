@@ -2,9 +2,9 @@ import glob
 import time
 from typing import Any, Dict
 from rich.progress import track
-from GFlowFuzz.logger import GlobberLogger, LEVEL
+from logger import GlobberLogger, LEVEL
 import traceback
-from GFlowFuzz.SUT.utils import FResult, SUTConfig
+from SUT.utils import FResult, SUTConfig
 from coder_LM import BaseCoder
 
 # base class file for target, used for user defined system targets

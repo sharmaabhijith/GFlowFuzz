@@ -6,7 +6,7 @@ distiller:
   folder: "distiller_outputs"       # Directory for distiller prompts
   api_name: "deepinfra"
   llm_config: 
-    engine_name: "gpt-3.5-turbo"
+    engine_name: "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
     max_tokens: 200
     temperature: 2
   system_message: "You are an auto-prompting tool"
@@ -30,7 +30,7 @@ coder:
   system_message: "You are an expert and advanced coding tool."
   instruction: "Please generate a correct and valid code following the given task instructions."
   llm_config: 
-    engine_name: "gpt-3.5-turbo"
+    engine_name: "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
     max_tokens: 200
     temperature: 2
     eos: ""

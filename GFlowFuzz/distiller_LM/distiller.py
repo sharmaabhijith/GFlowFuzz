@@ -3,11 +3,11 @@ from typing import List, Dict, Optional
 from rich.progress import track
 import time
 import traceback
-from GFlowFuzz.distiller_LM.utils import DistillerConfig
-from GFlowFuzz.logger import GlobberLogger, LEVEL
-from GFlowFuzz.coder_LM import BaseCoder
-from GFlowFuzz.SUT import BaseSUT
-from GFlowFuzz.client_LLM import get_LLM_client
+from distiller_LM.utils import DistillerConfig
+from logger import GlobberLogger, LEVEL
+from coder_LM import BaseCoder
+from SUT import BaseSUT
+from client_LLM import get_LLM_client
 
 
 class Distiller:
