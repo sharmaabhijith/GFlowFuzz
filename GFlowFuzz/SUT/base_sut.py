@@ -34,7 +34,6 @@ class BaseSUT(object):
         documentation, example_code, hand_written_prompt = None, None, None
 
         if sut_config.path_documentation:
-            print(f"Documentation file: {sut_config.path_documentation}")
             try:
                 documentation = open(sut_config.path_documentation, "r").read()
             except FileNotFoundError:

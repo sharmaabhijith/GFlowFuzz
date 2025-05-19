@@ -107,14 +107,14 @@ class Distiller:
             self.llm_config.temperature = 0.0
             self.logger.log(f"OpenAI config for greedy prompt: {str(self.llm_config)[:300]}", LEVEL.TRACE)
             response = self.llm_client.request(self.llm_config)
-            greedy_prompt = self.SUT.wrap_prompt(response.content)
+            greedy_prompt = response.content
             self.logger.log(f"Greedy prompt: {str(greedy_prompt)[:300]}", LEVEL.VERBOSE)
             with open(
                 self.folder + "/prompts/greedy_prompt.txt", "w", encoding="utf-8"
             ) as f:
                 f.write(greedy_prompt)   
             best_prompt, best_score = greedy_prompt, self.SUT.validate_prompt(
-                greedy_prompt, 
+                self.SUT.wrap_prompt(greedy_prompt), 
                 self.coder
             )
             self.logger.log(f"Greedy prompt score: {best_score}", LEVEL.TRACE)
@@ -126,14 +126,14 @@ class Distiller:
                 self.llm_config.temperature = 1.0
                 self.logger.log(f"OpenAI config for sample {i}: {str(self.llm_config)[:300]}", LEVEL.TRACE)
                 response = self.llm_client.request(self.llm_config)
-                prompt = self.SUT.wrap_prompt(response.content)
+                prompt = response.content
                 self.logger.log(f"Sample {i} prompt: {str(prompt)[:300]}", LEVEL.VERBOSE)
                 with open(
                     self.folder + "/prompts/prompt_{}.txt".format(i),
                     "w", encoding="utf-8"
                 ) as f:
                     f.write(prompt)   
-                score = self.SUT.validate_prompt(prompt, self.coder)
+                score = self.SUT.validate_prompt(self.SUT.wrap_prompt(prompt), self.coder)
                 self.logger.log(f"Sample {i} score: {score}", LEVEL.TRACE)
                 if score > best_score:
                     best_score = score
