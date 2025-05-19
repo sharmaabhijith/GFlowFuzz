@@ -12,8 +12,7 @@ import torch.nn as nn
 from dataclasses import asdict
 
 from .utils import InstructorConfig
-from trainer import TrainerConfig
-from GFlowFuzz.logger import GlobberLogger, LEVEL
+from logger import GlobberLogger, LEVEL
 import os
 import time
 import traceback
@@ -111,7 +110,7 @@ class Instructor:
         self.logger = GlobberLogger("instructor.log", level=LEVEL.INFO)
         self.logger.log("Instructor initialized.", LEVEL.INFO)
 
-    def setup_model_and_optimizer(self, trainer_config: TrainerConfig):
+    def setup_model_and_optimizer(self, trainer_config):
         """
         Setup model, tokenizer, optimizer, scheduler, and projection layer for training.
         Args:

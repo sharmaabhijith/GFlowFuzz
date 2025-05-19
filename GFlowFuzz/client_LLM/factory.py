@@ -45,12 +45,12 @@ class LLMClient:
         Makes a request with retries and timeout.
         """
         config_dict = asdict(config)
+        config_dict.pop("engine_name")
         retries = 5
         for attempt in range(retries):
         
             try:
-                if "model" not in config_dict:
-                    config_dict["model"] = self.engine_name 
+                config_dict["model"] = self.engine_name
                 data = self.client.chat.completions.create(**config_dict)
                 content = data.choices[0].message.content
                 return LLMResponse(content=content, raw=data)

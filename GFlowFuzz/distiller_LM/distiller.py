@@ -38,7 +38,7 @@ class Distiller:
         self.logger.log("Distiller initialized.", LEVEL.INFO)
         self.engine_name = distiller_config.llm_config.engine_name
         self.llm_client = get_LLM_client(
-            api_name = distiller_config.llm_config.api_name, 
+            api_name = distiller_config.api_name, 
             engine_name = self.engine_name
         )
         self.llm_config = distiller_config.llm_config
@@ -49,7 +49,7 @@ class Distiller:
         # Create prompts directory if it doesn't exist
         os.makedirs(self.folder + "/prompts", exist_ok=True)
     
-    def __create_auto_prompt_message(self, message: str) -> List[Dict[str, str]]:
+    def __create_auto_prompt_message(self, message: Optional[str] = None) -> List[Dict[str, str]]:
         """
         Create the messages for auto-prompting.
         
@@ -59,16 +59,19 @@ class Distiller:
         Returns:
             List of message dictionaries for API request
         """
+        if message is None:
+            content = self.instruction
+        else:
+            content = str(message) + "\n" + self.instruction
         return [
             {"role": "system", "content": self.system_message},
-            {"role": "user", "content": message + "\n" + self.instruction},
+            {"role": "user", "content": content},
         ]
     
     def generate_prompt(
         self,
         message: Optional[str] = None, 
         num_samples: int = 3,
-        max_tokens: int = 500
     ) -> str:
         """
         Generate the best prompt based on different strategies and validate them.
@@ -85,7 +88,10 @@ class Distiller:
         Returns:
             Best prompt based on validation score
         """
-        self.logger.log(f"generate_prompt called with message: {str(message)[:200]}, num_samples: {num_samples}, max_tokens: {max_tokens}", LEVEL.TRACE)
+        self.logger.log(
+            f"generate_prompt called with message: {str(message)[:200]}, num_samples: {num_samples}, max_tokens: {self.llm_config.max_tokens}", 
+            LEVEL.TRACE
+        )
         start_time = time.time()
         try:
             if os.path.exists(self.folder + "/prompts/best_prompt.txt"):
@@ -97,14 +103,10 @@ class Distiller:
                 self.logger.log(f"Loaded best_prompt.txt: {str(best_prompt)[:300]}", LEVEL.VERBOSE)
                 return best_prompt
             self.logger.log("Use auto-prompting prompt ... ", level=LEVEL.INFO)
-            config = self.llm_config(
-                messages=self.__create_auto_prompt_message(message),
-                max_tokens=max_tokens,
-                temperature=0.0,
-                engine_name=self.engine_name,
-            )
-            self.logger.log(f"OpenAI config for greedy prompt: {str(config)[:300]}", LEVEL.TRACE)
-            response = self.llm_client.request(config)
+            self.llm_config.messages = self.__create_auto_prompt_message(message)
+            self.llm_config.temperature = 0.0
+            self.logger.log(f"OpenAI config for greedy prompt: {str(self.llm_config)[:300]}", LEVEL.TRACE)
+            response = self.llm_client.request(self.llm_config)
             greedy_prompt = self.SUT.wrap_prompt(response.content)
             self.logger.log(f"Greedy prompt: {str(greedy_prompt)[:300]}", LEVEL.VERBOSE)
             with open(
@@ -120,14 +122,10 @@ class Distiller:
                 f.write(f"greedy score: {str(best_score)}")
             for i in track(range(num_samples), description="Generating prompts..."):
                 self.logger.log(f"Generating sample prompt {i}", LEVEL.TRACE)
-                config = self.llm_config(
-                    self.__create_auto_prompt_message(message),
-                    max_tokens=max_tokens,
-                    temperature=1.0,
-                    engine_name=self.engine_name,
-                )
-                self.logger.log(f"OpenAI config for sample {i}: {str(config)[:300]}", LEVEL.TRACE)
-                response = self.llm_client.request(config)
+                self.llm_config.messages = self.__create_auto_prompt_message(message)
+                self.llm_config.temperature = 1.0
+                self.logger.log(f"OpenAI config for sample {i}: {str(self.llm_config)[:300]}", LEVEL.TRACE)
+                response = self.llm_client.request(self.llm_config)
                 prompt = self.SUT.wrap_prompt(response.content)
                 self.logger.log(f"Sample {i} prompt: {str(prompt)[:300]}", LEVEL.VERBOSE)
                 with open(

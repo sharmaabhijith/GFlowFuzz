@@ -11,7 +11,8 @@ from coder_LM import BaseCoder
 # the point is to separately define oracles/fuzzing specific functions/and usages
 # target should be a stateful objects which has some notion of history (keeping a state of latest prompts)
 class BaseSUT(object):
-    def __init__(self, sut_config: SUTConfig):
+    def __init__(self, sut_config: SUTConfig, target_name: str):
+        self.target_name = target_name
         self.sut_config = sut_config
         self.language = sut_config.language
         self.folder = sut_config.folder
@@ -33,6 +34,7 @@ class BaseSUT(object):
         documentation, example_code, hand_written_prompt = None, None, None
 
         if sut_config.path_documentation:
+            print(f"Documentation file: {sut_config.path_documentation}")
             try:
                 documentation = open(sut_config.path_documentation, "r").read()
             except FileNotFoundError:
@@ -78,12 +80,7 @@ class BaseSUT(object):
         self.logger.log(f"validate_prompt called with prompt: {str(prompt)[:200]}", LEVEL.TRACE)
         start_time = time.time()
         try:
-            fos = coder.generate_code(
-                prompt,
-                batch_size=self.batch_size,
-                temperature=self.temperature,
-                max_length=self.max_length,
-            )
+            fos = coder.generate_code(prompt)
             self.logger.log(f"Generated {len(fos)} code samples for validation. First sample: {str(fos[0])[:200] if fos else 'None'}", LEVEL.VERBOSE)
             unique_set = set()
             score = 0
@@ -92,7 +89,7 @@ class BaseSUT(object):
                 self.logger.log(f"Validating code: {str(code)[:200]}", LEVEL.TRACE)
                 wb_file = self.write_back_file(code)
                 self.logger.log(f"Wrote code to file: {wb_file}", LEVEL.TRACE)
-                result, _ = self.validate_individual(wb_file)
+                result, _, _ = self.validate_individual(wb_file)
                 self.logger.log(f"Validation result: {result}", LEVEL.TRACE)
                 if (
                     result == FResult.SAFE
@@ -147,7 +144,7 @@ class BaseSUT(object):
                 description="Validating",
             ):
                 self.logger.log(f"Validating fuzz output: {fuzz_output}", LEVEL.TRACE)
-                f_result, message = self.validate_individual(fuzz_output)
+                f_result, message, _ = self.validate_individual(fuzz_output)
                 self.parse_validation_message(f_result, message, fuzz_output)
             end_time = time.time()
             self.logger.log(f"validate_all completed in {end_time - start_time:.2f}s", LEVEL.TRACE)

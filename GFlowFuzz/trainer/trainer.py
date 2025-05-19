@@ -23,12 +23,12 @@ from rich.progress import (
 from distiller_LM import Distiller, DistillerConfig
 from instruct_LM import Instructor, InstructorConfig, InstructionBuffer
 from coder_LM import Coder, CoderConfig
-from SUT import make_SUT
+from SUT import make_SUT, SUTConfig
 from oracle import Inspector
 from logger import LEVEL
-from .utils import TrainerConfig, FuzzerConfig, SUTConfig
+from .utils import TrainerConfig, FuzzerConfig
 from .checkpointer import CheckpointManager
-from GFlowFuzz.logger import GlobberLogger, LEVEL
+from logger import GlobberLogger, LEVEL
 
 
 class Fuzzer:
@@ -42,6 +42,7 @@ class Fuzzer:
         instructor_config: InstructorConfig,
         coder_config: CoderConfig,
         trainer_config: TrainerConfig,
+        target_name: str,
     ):
         """
         Initialize the fuzzer with SUT and configuration parameters.
@@ -58,7 +59,7 @@ class Fuzzer:
         coder_config.device = trainer_config.device
         instructor_config.device = trainer_config.device
         SUT_config.device = trainer_config.device
-        self.SUT = make_SUT(SUT_config)
+        self.SUT = make_SUT(SUT_config, target_name)
         self.number_of_iterations = fuzzer_config.number_of_iterations
         self.total_time = fuzzer_config.total_time
         self.output_folder = fuzzer_config.output_folder
@@ -154,7 +155,8 @@ class Fuzzer:
         start_time = time.time()
         try:
             self.logger.log("Generating initial prompt using distiller...", LEVEL.TRACE)
-            self.initial_prompt = self.distiller.generate_prompt()
+            message = self.SUT.prompt_used["docstring"]
+            self.initial_prompt = self.distiller.generate_prompt(message)
             self.logger.log(f"Initial prompt: {str(self.initial_prompt)[:300]}", LEVEL.VERBOSE)
             self.prompt = self.initial_prompt
             self.start_time = time.time()

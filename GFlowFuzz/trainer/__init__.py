@@ -1,2 +1,2 @@
 from .trainer import Fuzzer
-from .utils import TrainerConfig, FuzzerConfig, SUTConfig
+from .utils import TrainerConfig, FuzzerConfig

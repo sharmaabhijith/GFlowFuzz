@@ -12,5 +12,3 @@ class LLMConfig:
     max_tokens: int
     temperature: float
     engine_name: str
-    eos: List[str]
-    max_length: int

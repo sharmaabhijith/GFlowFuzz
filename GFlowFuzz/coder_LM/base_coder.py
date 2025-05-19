@@ -36,7 +36,7 @@ class BaseCoderLocal(BaseCoder):
             torch_dtype=torch.bfloat16,
             device=self.device,
         )
-        self.eos = EOF_STRINGS + coder_config.eos
+        self.eos = EOF_STRINGS
         self.max_length = coder_config.max_length
         self.skip_special_tokens = False
         self.logger = GlobberLogger("coder_local.log", level=LEVEL.INFO)

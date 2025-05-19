@@ -4,9 +4,10 @@ import yaml
 from distiller_LM import DistillerConfig
 from instruct_LM import InstructorConfig
 from coder_LM import CoderConfig
-from trainer import TrainerConfig, FuzzerConfig, SUTConfig
+from trainer import TrainerConfig, FuzzerConfig
+from SUT import SUTConfig
 from client_LLM import LLMConfig
-
+from logger import LEVEL
 
 
 def natural_sort_key(s):
@@ -28,7 +29,7 @@ def load_configurations(main_config_path: str):
         api_name=main_config["distiller"]["api_name"],
         llm_config=LLMConfig(**main_config["distiller"]["llm_config"]),
         system_message=main_config["distiller"]["system_message"],
-        instruction=main_config["distiller"]["instruction"],
+        instruction=main_config["distiller"]["instruction"],      
     )
     configs["instructor_config"] = InstructorConfig(
         engine_name=main_config["instructor"]["engine_name"],
@@ -38,12 +39,14 @@ def load_configurations(main_config_path: str):
         max_instructions=main_config["instructor"]["max_instructions"],
         temperature=main_config["instructor"]["temperature"],
         max_len=main_config["instructor"]["max_len"],
+        device=main_config["instructor"]["device"],
     )
     configs["coder_config"] = CoderConfig(
         system_message=main_config["coder"]["system_message"],
         instruction=main_config["coder"]["instruction"],
         api_name=main_config["coder"]["api_name"],
         llm_config=LLMConfig(**main_config["coder"]["llm_config"]),
+        device=main_config["coder"]["device"],
     )
     configs["trainer_config"] = TrainerConfig(
         device=main_config["trainer"]["device"],
@@ -58,6 +61,7 @@ def load_configurations(main_config_path: str):
         lora_dropout=main_config["trainer"]["lora_dropout"],
         buffer_size=main_config["trainer"]["buffer_size"],
         prioritization=main_config["trainer"]["prioritization"],
+        batch_size=main_config["trainer"]["batch_size"],
     )
     configs["fuzzer_config"] = FuzzerConfig(
         number_of_iterations=main_config["fuzzer"]["number_of_iterations"],
@@ -74,6 +78,7 @@ def load_configurations(main_config_path: str):
         trigger_to_generate_input=main_config["SUT"]["trigger_to_generate_input"],
         input_hint=main_config["SUT"]["input_hint"],
         SUT_string=main_config["SUT"]["SUT_string"],
+        device=main_config["SUT"]["device"],
         timeout=main_config["SUT"]["timeout"],
         folder=main_config["SUT"]["folder"],
         batch_size=main_config["SUT"]["batch_size"],

@@ -20,7 +20,7 @@ __SUT_CLASS_MAP = {
     "java": JAVA_SUT,
 }
 
-def make_SUT(sut_config: SUTConfig) -> BaseSUT:
+def make_SUT(sut_config: SUTConfig, target_name: str) -> BaseSUT:
     """Create a SUT from a SUTConfig object and an optional coder instance."""
     # Optional: Print SUT config for verification (can be controlled by a flag in sut_config if needed)
     print("=== SUT Config ===")
@@ -31,6 +31,6 @@ def make_SUT(sut_config: SUTConfig) -> BaseSUT:
 
     sut_class = __SUT_CLASS_MAP.get(sut_config.language)
     if sut_class:
-        return sut_class(sut_config)
+        return sut_class(sut_config, target_name)
     else:
         raise ValueError(f"Invalid SUT language in SUTConfig: {sut_config.language}")

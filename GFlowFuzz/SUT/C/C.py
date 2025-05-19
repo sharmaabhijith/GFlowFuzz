@@ -56,8 +56,8 @@ MOST_RECENT_GCC_STD_VERSION = get_most_recent_cpp_version()
 
 
 class C_SUT(BaseSUT):
-    def __init__(self, sut_config: SUTConfig):
-        super().__init__(sut_config)
+    def __init__(self, sut_config: SUTConfig, target_name: str):
+        super().__init__(sut_config, target_name)
         self.SYSTEM_MESSAGE = "You are a C Fuzzer"
         self.prompt_used = self._create_prompt_from_config(sut_config)
         #self.coverage_manager = CoverageManager(Tool.GCC, pathlib.Path(f"/tmp/out{self.CURRENT_TIME}"))

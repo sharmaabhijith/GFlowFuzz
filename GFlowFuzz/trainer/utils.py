@@ -1,16 +1,14 @@
 from dataclasses import dataclass
 from typing import Dict, Any
-from SUT import SUTConfig
 
 @dataclass
 class FuzzerConfig:
-    SUT: SUTConfig
     number_of_iterations: int
     total_time: int
     output_folder: str
+    log_level: int
     resume: bool = False
     otf: bool = False
-    log_level: int
 
 @dataclass
 class TrainerConfig:
