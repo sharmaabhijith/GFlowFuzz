@@ -23,14 +23,13 @@ INITIAL PROMPT: The C Standard Library is a collection of headers that provide a
 Overall, the C Standard Library is a comprehensive collection of headers that provide a foundation for writing efficient, portable, and reliable C code.
 TASK: Your task is to create an instruction set as a guide for generating code. The instruction set is a sequence of instructions where each instruction adds a new layer of incremental complexity to the existing description of requirements.
 NOTE: DO NOT generate any code. Only generate instructions.
-0 - string manipulation)
-1 - string handling)
-2 - string manipulation)
-3 - string operations)
-4 - string handling)
-5 - strings manipulation)
-6 - string manipulation)
-7 - string manipulation)
-8 - string operations)
-9 - string manipulation)
-Generate the next instruction:
+0 - Instruction 2:
+1 - Instruction 3:
+2 - Instruction 4: Expand on the Functionality Categories section by adding detailed descriptions for each category, focusing on one specific header file from each category.
+3 - each category. Provide examples and relevant notes.
+4 - each category.
+5 - each category.
+6 - the respective category. For example, describe what `<assert.h>` does in detail.
+7 - each category.
+8 - each category.
+9 - each category, such as `<assert.h>` in Error Handling or `<ctype.h>` in Type and Character Utilities.

@@ -23,14 +23,13 @@ INITIAL PROMPT: The C Standard Library is a collection of headers that provide a
 Overall, the C Standard Library is a comprehensive collection of headers that provide a foundation for writing efficient, portable, and reliable C code.
 TASK: Your task is to create an instruction set as a guide for generating code. The instruction set is a sequence of instructions where each instruction adds a new layer of incremental complexity to the existing description of requirements.
 NOTE: DO NOT generate any code. Only generate instructions.
-0 - string manipulation)
-1 - string manipulation)
-2 - string manipulation)
-3 - string handling)
-4 - string handling)
-5 - string manipulation)
-6 - strings manipulation)
-7 - string handling)
-8 - string manipulation)
-9 - string manipulation)
-Generate the next instruction:
+0 - .h>`, `<time.h>` (localization and time/date manipulation)
+1 - .h>`, `<time.h>` (internationalization and time/date manipulation)
+2 - .h>`, `<time.h>` (localization and time/date manipulation)
+3 - .h>`, `<time.h>`, `<tm.h>` (localization, time/date utilities)
+4 - .h>`, `<time.h>` (localization, time and date manipulation)
+5 - .h>`, `<time.h>` (localization, time/date manipulation)
+6 - .h>`, `<time.h>` (localization and time/date conversion)
+7 - .h>`, `<time.h>` (localization and date/time functions)
+8 - .h>`, `<time.h>` (localization and time/date operations)
+9 - .h>`, `<time.h>` (localization and time/date manipulation)

@@ -69,10 +69,11 @@ class InstructionSequence:
             f"NOTE: {self.template['note']}"
         ]
         instruction_lines.extend(f"{i} - {instr}" for i, instr in enumerate(self.instructions))
-        instruction_lines.append(self.template["next"])
         content = separator.join(instruction_lines)
+        
 
         if instruct_format.lower() == "llama":
+            content = content + "\n" + self.template["next"]
             return (
                 "<|system|>\n"
                 f"{self.template['main']}\n"
@@ -82,6 +83,7 @@ class InstructionSequence:
             )
         elif instruct_format.lower() == "mistral":
             # Mistral doesn't use separate system/user tags, just [INST] ... [/INST]
+            content = content + "\n" + self.template["next"]
             prompt = (
                 f"{self.template['main']}\n{content}"
             )
@@ -315,7 +317,7 @@ class Instructor:
             log_probs = []
             log_zs = []
             for idx in range(self.max_instructions):
-                intermediate_prompt = sequence.get_full_text(self.separator, instruct_format="mistral")
+                intermediate_prompt = sequence.get_full_text(self.separator, instruct_format="llama")
                 self.logger.log(f"Generating instruction {idx} with prompt: {str(intermediate_prompt)[:200]}", LEVEL.TRACE)
                 instruction, log_prob, log_z = self.generate_instruction(
                     intermediate_prompt, 
