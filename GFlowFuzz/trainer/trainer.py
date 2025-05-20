@@ -78,14 +78,15 @@ class Fuzzer:
             SUT=self.SUT,
             output_folder=self.output_folders["distilled_prompts"]
         )
-        # self.instructor = Instructor(instructor_config)
+        self.instructor = Instructor(
+            instructor_config=instructor_config,
+            trainer_config=trainer_config
+        )
         self.oracle = Inspector(self.SUT)
         # self.ibuffer = InstructionBuffer(
         #     max_size=trainer_config.buffer_size,
         #     prioritization=trainer_config.prioritization
         # )
-        # # Setup instructor's model, optimizer, scheduler, tokenizer, and projection layer
-        # self.instructor.setup_model_and_optimizer(trainer_config)
         # # Save reference for checkpointing
         # self.checkpointer = CheckpointManager(
         #     save_dir=self.output_folders["checkpoints"],
@@ -188,11 +189,11 @@ class Fuzzer:
                     iter_start = time.time()
                     self.logger.log(f"Fuzzing iteration {self.count}", LEVEL.TRACE)
                     # self.logger.log(f"Prompt for iteration: {str(self.prompt)[:300]}", LEVEL.VERBOSE)
-                    # instructions, log_probs, log_zs = self.instructor.generate_instruction_sequence(self.prompt)
+                    final_prompt, log_probs, log_zs = self.instructor.generate_instruction_sequence(self.prompt)
                     # self.logger.log(f"Instructions: {str(instructions)[:300]}", LEVEL.VERBOSE)
                     # self.logger.log(f"Log_probs: {str(log_probs)[:300]}", LEVEL.VERBOSE)
                     # self.logger.log(f"Log_zs: {str(log_zs)[:300]}", LEVEL.VERBOSE)
-                    fos = self.coder.generate_code(prompt=self.prompt)
+                    fos = self.coder.generate_code(prompt=final_prompt)
                     self.logger.log(f"Generated code samples: {str(fos)[:500]}", LEVEL.VERBOSE)
                     for fo in fos:
                         self.logger.log(f"Evaluating code sample: {str(fo)[:300]}", LEVEL.TRACE)

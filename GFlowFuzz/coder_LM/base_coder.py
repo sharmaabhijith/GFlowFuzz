@@ -30,10 +30,14 @@ class BaseCoderLocal(BaseCoder):
         coder_config: CoderConfig, 
     ):
         self.device = coder_config.device
-        self.tokenizer = AutoTokenizer.from_pretrained(coder_config.engine_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            coder_config.engine_name,
+            trust_remote_code=True
+            )
         self.model = AutoModelForCausalLM.from_pretrained(
             coder_config.engine_name,
             torch_dtype=torch.bfloat16,
+            trust_remote_code=True,
             device=self.device,
         )
         self.eos = EOF_STRINGS
