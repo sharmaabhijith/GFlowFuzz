@@ -3,7 +3,6 @@ from logger import GlobberLogger, LEVEL
 import os
 import time
 import traceback
-from .utils import write_to_file
 
 class Inspector:
     def __init__(self, sut: BaseSUT):
@@ -27,7 +26,8 @@ class Inspector:
         )
         start_time = time.time()
         file_name = os.path.join(output_folder, f"{count}.fuzz")
-        write_to_file(fo, file_name)
+        with open(file_name, "w", encoding="utf-8") as f:
+            f.write(fo)
         try:
             if not otf:
                 self.logger.log("OTF is False, skipping inspection.", LEVEL.TRACE)

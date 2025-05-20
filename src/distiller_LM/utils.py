@@ -4,7 +4,6 @@ from client_LLM import LLMConfig
 
 @dataclass
 class DistillerConfig:
-    folder: str
     api_name: str
     llm_config: LLMConfig
     system_message: str = "You are an auto-prompting tool"

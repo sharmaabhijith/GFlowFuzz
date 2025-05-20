@@ -11,7 +11,7 @@ from peft import LoraConfig, get_peft_model
 import torch.nn as nn
 from dataclasses import asdict
 from trainer.utils import TrainerConfig
-from .utils import InstructorConfig
+from instruct_LM.utils import InstructorConfig
 from logger import GlobberLogger, LEVEL
 import os
 import time
@@ -45,73 +45,56 @@ class InstructionSequence:
             instruction (str): Single instruction text to be added to the sequence.
         """
         self.instructions.append(instruction)  # Append the instruction to the list.
-
-    def format_prompt(self, prompt_text: str) -> str:
-        """
-        Format the prompt text according to Llama 3's chat format.
         
-        Args:
-            prompt_text (str): The input prompt text to be formatted
-            
-        Returns:
-            str: Formatted prompt with system, user, and assistant tokens
-        """
-        # Format the prompt with Llama 3's chat format
-        formatted_prompt = (
-            "<|system|>\n"
-            f"{self.template['main']}\n"
-            "<|user|>\n"
-            f"{self.get_full_text()}\n"
-            "<|assistant|>\n"
-        )
-        return formatted_prompt
-        
-    def get_full_text(self, separator: str = "\n", instruct_format: bool = True) -> str:
+    def get_full_text(
+        self, 
+        separator: str = "\n", 
+        instruct_format: str = "llama"
+    ) -> str:
         """
         Get the full text of the sequence, including the prompt and all instructions.
-        
+
         Args:
             separator (str): String to separate instructions, default is "\n".
-            instruct_format (bool): Whether to format text in Llama chat format.
-            
+            instruct_format (str): Format type: "llama", "mistral", or "plain".
+
         Returns:
             str: Concatenated string of the initial prompt and all instructions with separators.
         """
-        if instruct_format:
-            # Build instruction list with proper formatting
-            instructions = [
-                f"INITIAL PROMPT: {self.initial_prompt}",
-                f"TASK: {self.template['desc']}",
-                f"NOTE: {self.template['note']}"
-            ]
-            # Add numbered instructions
-            instructions.extend(f"{i} - {instr}" for i, instr in enumerate(self.instructions))
-            # Add next template
-            instructions.append(self.template["next"])
-            
-            # Join all parts with proper formatting
+        
+        # Compose base instruction lines
+        instruction_lines = [
+            f"INITIAL PROMPT: {self.initial_prompt}",
+            f"TASK: {self.template['desc']}",
+            f"NOTE: {self.template['note']}"
+        ]
+        instruction_lines.extend(f"{i} - {instr}" for i, instr in enumerate(self.instructions))
+        instruction_lines.append(self.template["next"])
+        content = separator.join(instruction_lines)
+
+        if instruct_format.lower() == "llama":
             return (
                 "<|system|>\n"
                 f"{self.template['main']}\n"
                 "<|user|>\n"
-                f"{separator.join(instructions)}\n"
+                f"{content}\n"
                 "<|assistant|>\n"
             )
-        else:
-            # Build instruction list for non-chat format
-            instructions = [
-                f"INITIAL PROMPT: {self.initial_prompt}",
+        elif instruct_format.lower() == "mistral":
+            # Mistral doesn't use separate system/user tags, just [INST] ... [/INST]
+            prompt = (
+                f"{self.template['main']}\n{content}"
+            )
+            return f"[INST] {prompt.strip()} [/INST]"
+        elif instruct_format.lower() == "plain":
+            # No special formatting, just return everything together
+            return separator.join([
                 f"MAIN: {self.template['main']}",
-                f"TASK: {self.template['desc']}",
-                f"NOTE: {self.template['note']}"
-            ]
-            # Add numbered instructions
-            instructions.extend(f"{i} - {instr}" for i, instr in enumerate(self.instructions))
-            # Add next template
-            instructions.append(self.template["next"])
-            
-            # Join all parts with double separator for initial prompt
-            return separator.join(instructions)
+                content
+            ])
+        else:
+            raise ValueError(f"Unknown instruct_format: {instruct_format}")
+
     
     def __len__(self) -> int:
         """
@@ -255,15 +238,13 @@ class Instructor:
     ) -> Tuple[str, float, float]:
         self.logger.log(f"generate_instruction called with prompt_text: {str(prompt_text)[:200]}, temperature: {temperature}, max_len: {max_len}, stop_sequences: {stop_sequences}", LEVEL.TRACE)
         try:
-            # Format the prompt for Llama 3
-            formatted_prompt = self.__format_prompt(prompt_text)
             # Tokenize with proper padding
             tokenized = self.tokenizer(
-                formatted_prompt,
+                prompt_text,
                 return_tensors="pt",
                 padding=True,
                 truncation=True,
-                max_length=2048  # Llama 3 context window
+                max_length=256
             ).to(self.model.device)
             prompt_ids = tokenized["input_ids"]
             prompt_attention_mask = tokenized["attention_mask"]
@@ -334,7 +315,7 @@ class Instructor:
             log_probs = []
             log_zs = []
             for idx in range(self.max_instructions):
-                intermediate_prompt = sequence.get_full_text(self.separator, instruct_format=True)
+                intermediate_prompt = sequence.get_full_text(self.separator, instruct_format="mistral")
                 self.logger.log(f"Generating instruction {idx} with prompt: {str(intermediate_prompt)[:200]}", LEVEL.TRACE)
                 instruction, log_prob, log_z = self.generate_instruction(
                     intermediate_prompt, 
@@ -347,7 +328,7 @@ class Instructor:
                 log_zs.append(log_z)
                 self.logger.log(f"Instruction {idx}: {str(instruction)[:200]}, log_prob: {log_prob.item() if hasattr(log_prob, 'item') else log_prob}, log_z: {log_z.item() if hasattr(log_z, 'item') else log_z}", LEVEL.VERBOSE)
             end_time = time.time()
-            final_prompt = sequence.get_full_text(self.separator, instruct_format=False)
+            final_prompt = sequence.get_full_text(self.separator, instruct_format="plain")
             self.logger.log(f"Instruction sequence generation complete in {end_time - start_time:.2f}s", LEVEL.TRACE)
             return final_prompt, log_probs, log_zs
         except Exception as e:

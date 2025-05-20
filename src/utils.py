@@ -4,7 +4,7 @@ import yaml
 import datetime
 
 from distiller_LM import DistillerConfig
-from instruct_LM import InstructorConfig
+from instruct_LM import InstructorConfig, InstructionTemplateConfig
 from coder_LM import CoderConfig
 from trainer import TrainerConfig, FuzzerConfig
 from SUT import SUTConfig
@@ -12,10 +12,9 @@ from client_LLM import LLMConfig
 from logger import LEVEL
 
 
-
 def make_ouput_dirs(
     folder_path: str, 
-    folder_components: list[str] = ["logs", "distilled_prompts", "fuzz_code", "checkpoints"]
+    folder_components: list[str] = ["logs", "distilled_prompts", "fuzz_code", "instruct_prompts", "checkpoints"]
     ):
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     folder_path_dict = {}
@@ -44,7 +43,6 @@ def load_configurations(main_config_path: str):
     configs = {}
     configs["exp_name"] = main_config.get("exp_name", "exp")
     configs["distiller_config"] = DistillerConfig(
-        folder=main_config["distiller"]["folder"],
         api_name=main_config["distiller"]["api_name"],
         llm_config=LLMConfig(**main_config["distiller"]["llm_config"]),
         system_message=main_config["distiller"]["system_message"],
@@ -52,8 +50,7 @@ def load_configurations(main_config_path: str):
     )
     configs["instructor_config"] = InstructorConfig(
         engine_name=main_config["instructor"]["engine_name"],
-        tokenizer=main_config["instructor"]["tokenizer"],
-        template=main_config["instructor"]["template"],
+        template=InstructionTemplateConfig(**main_config["instructor"]["template"]),
         separator=main_config["instructor"]["separator"],
         max_instructions=main_config["instructor"]["max_instructions"],
         temperature=main_config["instructor"]["temperature"],

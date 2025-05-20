@@ -26,10 +26,9 @@ from coder_LM import Coder, CoderConfig
 from SUT import make_SUT, SUTConfig
 from oracle import Inspector
 from logger import LEVEL
-from .utils import TrainerConfig, FuzzerConfig
-from .checkpointer import CheckpointManager
+from trainer.utils import TrainerConfig, FuzzerConfig
+from trainer.checkpointer import CheckpointManager
 from logger import GlobberLogger, LEVEL
-
 
 class Fuzzer:
     """Class for managing the fuzzing process using GFlowNet principles."""
@@ -188,15 +187,17 @@ class Fuzzer:
                     ):
                     iter_start = time.time()
                     self.logger.log(f"Fuzzing iteration {self.count}", LEVEL.TRACE)
-                    # self.logger.log(f"Prompt for iteration: {str(self.prompt)[:300]}", LEVEL.VERBOSE)
                     final_prompt, log_probs, log_zs = self.instructor.generate_instruction_sequence(self.prompt)
-                    # self.logger.log(f"Instructions: {str(instructions)[:300]}", LEVEL.VERBOSE)
-                    # self.logger.log(f"Log_probs: {str(log_probs)[:300]}", LEVEL.VERBOSE)
-                    # self.logger.log(f"Log_zs: {str(log_zs)[:300]}", LEVEL.VERBOSE)
+                    self.logger.log(f"Log_probs: {str(log_probs)[:300]}", LEVEL.VERBOSE)
+                    self.logger.log(f"Log_zs: {str(log_zs)[:300]}", LEVEL.VERBOSE)
+                    file_name = os.path.join(self.output_folders["instruct_prompts"], f"{self.count}.txt")
+                    self.logger.log(f"Writing instructions to file: {file_name}", LEVEL.TRACE)
+                    with open(file_name, "w", encoding="utf-8") as f:
+                        f.write(final_prompt)
                     fos = self.coder.generate_code(prompt=final_prompt)
-                    self.logger.log(f"Generated code samples: {str(fos)[:500]}", LEVEL.VERBOSE)
+                    self.logger.log(f"Generated code samples:", LEVEL.TRACE)
                     for fo in fos:
-                        self.logger.log(f"Evaluating code sample: {str(fo)[:300]}", LEVEL.TRACE)
+                        self.logger.log(f"Evaluating code sample:", LEVEL.TRACE)
                         f_result, sut_message, reward = self.oracle.inspect(
                             fo = fo,
                             output_folder = self.output_folders["fuzz_code"],

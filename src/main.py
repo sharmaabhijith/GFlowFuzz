@@ -3,12 +3,12 @@ import click
 from logger import set_global_log_dir
 import datetime
 from trainer import Fuzzer
-from utils import load_configurations, make_ouput_dirs
+from utils import make_ouput_dirs, load_configurations
 
 @click.command()
 @click.option(
     "--target_name", 
-    default="../../gcc-13/bin/gcc", 
+    default="../gcc-13/bin/gcc", 
     required=True, 
     help="Full path to the compiler/interpreter."
 )
@@ -18,17 +18,17 @@ def main(target_name: str):
 
     # Select config file based on binary name
     if binary == "gcc":
-        main_config = "../config/c_std.yaml"
+        main_config = "config/c_std.yaml"
     elif binary == "g++":
-        main_config = "../config/cpp_23.yaml"
+        main_config = "config/cpp_23.yaml"
     elif binary == "go":
-        main_config = "../config/go_std.yaml"
+        main_config = "config/go_std.yaml"
     elif binary == "javac":
-        main_config = "../config/java_std.yaml"
+        main_config = "config/java_std.yaml"
     elif binary == "cvc5":
-        main_config = "../config/smt_general.yaml"
+        main_config = "config/smt_general.yaml"
     elif binary == "python":
-        main_config = "../config/qiskit_opt_and_qasm.yaml"
+        main_config = "config/qiskit_opt_and_qasm.yaml"
     else:
         raise ValueError(f"Invalid target_name: {target_name}")
 

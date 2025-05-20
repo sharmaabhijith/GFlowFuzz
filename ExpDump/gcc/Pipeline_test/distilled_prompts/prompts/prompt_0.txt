@@ -1,0 +1,35 @@
+The C Standard Library is a collection of headers that provide a wide range of functionalities. Here's a concise summary:
+
+**Main Categories:**
+
+1. **Type and Error Handling**: `<assert.h>`, `<errno.h>`, `<stdbool.h>`, `<stddef.h>`
+2. **Integer and Floating-Point Types**: `<limits.h>`, `<float.h>`, `<stdint.h>`, `<inttypes.h>`
+3. **Character and String Handling**: `<ctype.h>`, `<string.h>`, `<wchar.h>`, `<wctype.h>`
+4. **Math and Complex Operations**: `<math.h>`, `<complex.h>`, `<tgmath.h>`
+5. **Input/Output and Files**: `<stdio.h>`
+6. **Memory Management and Utilities**: `<stdlib.h>`
+7. **Concurrency and Threading**: `<threads.h>`, `<stdatomic.h>`
+8. **Time and Date Utilities**: `<time.h>`
+9. **Localization and Unicode Support**: `<locale.h>`, `<uchar.h>`
+
+**Key Functionalities:**
+
+* Input/Output operations
+* String and character manipulation
+* Math and complex number operations
+* Memory management and utilities
+* Error handling and debugging
+* Concurrency and threading support
+* Time and date utilities
+* Localization and Unicode support
+
+**Notable Features (since C99, C11, C23):**
+
+* Complex number arithmetic (`<complex.h>`)
+* Boolean type macros (`<stdbool.h>`)
+* Fixed-width integer types (`<stdint.h>`)
+* Atomic operations (`<stdatomic.h>`)
+* Thread library (`<threads.h>`)
+* UTF-16 and UTF-32 character utilities (`<uchar.h>`)
+* Checked integer arithmetic (`<stdckdint.h>`)
+* Byte and bit representation macros (`<stdbit.h>`)

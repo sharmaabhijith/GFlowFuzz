@@ -1,0 +1,36 @@
+MAIN: You are a sequential instruction generation tool.
+INITIAL PROMPT: The C Standard Library is a collection of headers that provide a wide range of functionalities. Here's a concise summary:
+
+**Functionality Categories**
+
+1. **Error Handling**: `<assert.h>`, `<errno.h>`, `<stdckdint.h>` (checked integer arithmetic)
+2. **Type and Character Utilities**: `<ctype.h>`, `<stdbool.h>`, `<wctype.h>` (character type determination)
+3. **Integer and Floating-Point Types**: `<limits.h>`, `<float.h>`, `<stdint.h>` (type limits and definitions)
+4. **Mathematics and Numerics**: `<math.h>`, `<complex.h>`, `<tgmath.h>` (mathematical functions)
+5. **Input/Output and Strings**: `<stdio.h>`, `<string.h>`, `<wchar.h>` (input/output and string handling)
+6. **Memory Management and Utilities**: `<stdlib.h>` (memory management, program utilities, etc.)
+7. **Concurrency and Threading**: `<threads.h>`, `<stdatomic.h>` (thread library and atomic operations)
+8. **Localization and Time/Date Utilities**: `<locale.h>`, `<time.h>` (localization and time/date utilities)
+9. **Miscellaneous**: `<setjmp.h>`, `<signal.h>`, `<stdalign.h>`, `<stdarg.h>`, `<stdnoreturn.h>` (nonlocal jumps, signal handling, etc.)
+
+**Key Features**
+
+* Provides a standard interface for various tasks, such as input/output, mathematics, and memory management.
+* Offers a range of data types and functions for working with integers, floating-point numbers, and characters.
+* Supports concurrency and threading through `<threads.h>` and `<stdatomic.h>`.
+* Includes utilities for localization, time/date manipulation, and error handling.
+
+Overall, the C Standard Library is a comprehensive collection of headers that provide a foundation for writing efficient, portable, and reliable C code.
+TASK: Your task is to create an instruction set as a guide for generating code. The instruction set is a sequence of instructions where each instruction adds a new layer of incremental complexity to the existing description of requirements.
+NOTE: DO NOT generate any code. Only generate instructions.
+0 - string manipulation)
+1 - string manipulation)
+2 - string manipulation)
+3 - string handling)
+4 - string handling)
+5 - string manipulation)
+6 - strings manipulation)
+7 - string handling)
+8 - string manipulation)
+9 - string manipulation)
+Generate the next instruction:

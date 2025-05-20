@@ -3,10 +3,9 @@
 exp_name: "Pipeline_test"
 
 distiller:
-  folder: "distiller_outputs"       # Directory for distiller prompts
   api_name: "deepinfra"
   llm_config: 
-    engine_name: "meta-llama/Meta-Llama-3-8B-Instruct"
+    engine_name: "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
     max_tokens: 500
     temperature: 2
     messages: []
@@ -14,8 +13,7 @@ distiller:
   instruction: "Please summarize the documentation provided in a concise manner to describe the usage and functionality of the target"
 
 instructor:
-  engine_name: "meta-llama/Meta-Llama-3-8B-Instruct"  # Model name for the instructor
-  tokenizer: "meta-llama/Meta-Llama-3-8B-Instruct"    # Tokenizer name for the instructor
+  engine_name: "deepseek-ai/deepseek-coder-6.7b-instruct"  # Model name for the instructor
   template:                         # Describe the context of instruction generation
     main: "You are a sequential instruction generation tool."
     desc: "Your task is to create an instruction set as a guide for generating code. The instruction set is a sequence of instructions where each instruction adds a new layer of incremental complexity to the existing description of requirements."
@@ -33,7 +31,7 @@ coder:
   instruction: "/* Please create a advanced C program following all the instructions closely. I need the code to have good coverage for testing compiler for potential discovery of bugs.*/"
   device: "cuda"
   llm_config: 
-    engine_name: "meta-llama/Meta-Llama-3-8B-Instruct"
+    engine_name: "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
     max_tokens: 1000
     temperature: 2
     messages: []
@@ -41,7 +39,7 @@ coder:
 # SUT configuration moved to its own top-level section for clarity
 SUT:
   language: "c"                   # Programming language of the target
-  path_documentation: "../config/documentation/c/c_std.md"  # Path to documentation for the target
+  path_documentation: "config/documentation/c/c_std.md"  # Path to documentation for the target
   path_example_code: null         # Path to example code (if any)
   trigger_to_generate_input: "Please generate a correct and valid code following the given task instructions."   # Trigger string for generating input
   input_hint: "#include <stdlib.h>"  # Hint for input generation
@@ -74,7 +72,7 @@ trainer:
   sft_ckpt: "checkpoint"
   train_steps: 1000
   grad_acc_steps: 1
-  lr: 1e-4
+  lr: 0.0001
   max_norm: 1.0
   num_warmup_steps: 10
   lora_r: 8

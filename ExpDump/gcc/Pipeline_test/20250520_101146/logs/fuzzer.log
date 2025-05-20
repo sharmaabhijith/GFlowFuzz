@@ -1,0 +1,20 @@
+[2025-05-20 10:11:53][INFO] Fuzzer initialized.
+[2025-05-20 10:11:53][TRACE] SUTConfig: SUTConfig(language='c', path_documentation='config/documentation/c/c_std.md', path_example_code=None, trigger_to_generate_input='Please generate a correct and valid code following the given task instructions.', input_hint='#include <stdlib.h>', path_hand_written_prompt=None, SUT_string='', timeout=10, folder='fuzz_outputs', batch_size=1, temperature=0.8, max_length=1024, device='cuda', log_level='VERBOSE', template='fuzzing_with_config_file', lambda_hyper=0.1, beta1_hyper=1.0, special_eos=None, oracle_type='opt_and_qasm')
+[2025-05-20 10:11:53][TRACE] FuzzerConfig: FuzzerConfig(number_of_iterations=10, total_time=1, log_level=1, resume=False, otf=False)
+[2025-05-20 10:11:53][TRACE] CoderConfig: CoderConfig(system_message='You are an expert and advanced coding tool.', instruction='/* Please create a advanced C program following all the instructions closely. I need the code to have good coverage for testing compiler for potential discovery of bugs.*/', api_name='deepinfra', device='cuda', llm_config=LLMConfig(messages=[], max_tokens=1000, temperature=2, engine_name='meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8'))
+[2025-05-20 10:11:53][TRACE] TrainerConfig: TrainerConfig(device='cuda', batch_size=1, sft_ckpt='checkpoint', train_steps=1000, grad_acc_steps=1, lr=0.0001, max_norm=1.0, num_warmup_steps=10, lora_r=8, lora_alpha=32, lora_dropout=0.1, buffer_size=100, prioritization=True)
+[2025-05-20 10:11:53][TRACE] DistillerConfig: DistillerConfig(api_name='deepinfra', llm_config=LLMConfig(messages=[], max_tokens=500, temperature=2, engine_name='meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8'), system_message='You are an auto-prompting tool', instruction='Please summarize the documentation provided in a concise manner to describe the usage and functionality of the target')
+[2025-05-20 10:11:53][INFO] Fuzzer training started.
+[2025-05-20 10:11:53][TRACE] Generating initial prompt using distiller...
+[2025-05-20 10:11:53][TRACE] Fuzzing iteration 0
+[2025-05-20 10:12:27][TRACE] Writing instructions to file: ExpDump/gcc/Pipeline_test/20250520_101146/instruct_prompts/0.txt
+[2025-05-20 10:12:43][TRACE] Generated code samples:
+[2025-05-20 10:12:43][TRACE] Evaluating code sample:
+[2025-05-20 10:12:43][INFO] Checkpoint saved at step 0
+[2025-05-20 10:12:43][TRACE] Iteration 0 duration: 50.54s
+[2025-05-20 10:12:43][TRACE] Fuzzing iteration 1
+[2025-05-20 10:13:16][TRACE] Writing instructions to file: ExpDump/gcc/Pipeline_test/20250520_101146/instruct_prompts/1.txt
+[2025-05-20 10:13:34][TRACE] Generated code samples:
+[2025-05-20 10:13:34][TRACE] Evaluating code sample:
+[2025-05-20 10:13:34][TRACE] Iteration 1 duration: 51.20s
+[2025-05-20 10:13:34][TRACE] Fuzzing iteration 2

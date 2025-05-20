@@ -16,7 +16,7 @@ from tqdm import tqdm
 from transformers.pytorch_utils import ALL_LAYERNORM_LAYERS
 
 @dataclass
-class TemplateConfig:
+class InstructionTemplateConfig:
     main: str
     desc: str
     note: str
@@ -26,8 +26,7 @@ class TemplateConfig:
 @dataclass
 class InstructorConfig:
     engine_name: str
-    tokenizer: Any
-    template: TemplateConfig
+    template: InstructionTemplateConfig
     separator: str
     max_instructions: int
     temperature: float

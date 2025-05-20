@@ -7,7 +7,7 @@ from dataclasses import asdict
 from concurrent.futures import TimeoutError as FuturesTimeout
 from requests.exceptions import RequestException
 from logger import GlobberLogger, LEVEL
-from .utils import LLMConfig, LLMResponse
+from client_LLM.utils import LLMConfig, LLMResponse
 
 
 class LLMClient:
