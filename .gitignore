@@ -4,6 +4,8 @@ api_key.txt
 testbed/
 Results/
 __pycache__/
+*.pdf
+*.puml
 
 # fuzzing artifacts
 .z3-trace
