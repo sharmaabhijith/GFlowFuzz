@@ -49,12 +49,11 @@ def load_configurations(main_config_path: str):
         instruction=main_config["distiller"]["instruction"],      
     )
     configs["instructor_config"] = InstructorConfig(
-        engine_name=main_config["instructor"]["engine_name"],
+        api_name=main_config["instructor"]["api_name"],
+        llm_config=LLMConfig(**main_config["instructor"]["llm_config"]),
         template=InstructionTemplateConfig(**main_config["instructor"]["template"]),
         separator=main_config["instructor"]["separator"],
         max_instructions=main_config["instructor"]["max_instructions"],
-        temperature=main_config["instructor"]["temperature"],
-        max_len=main_config["instructor"]["max_len"],
         device=main_config["instructor"]["device"],
     )
     configs["coder_config"] = CoderConfig(

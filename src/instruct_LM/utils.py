@@ -14,6 +14,7 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_sequence
 from tqdm import tqdm
 from transformers.pytorch_utils import ALL_LAYERNORM_LAYERS
+from client_LLM import LLMConfig
 
 @dataclass
 class InstructionTemplateConfig:
@@ -25,12 +26,11 @@ class InstructionTemplateConfig:
 
 @dataclass
 class InstructorConfig:
-    engine_name: str
+    api_name: str
+    llm_config: LLMConfig
     template: InstructionTemplateConfig
     separator: str
     max_instructions: int
-    temperature: float
-    max_len: int
     device: str
 
 def batch_cosine_similarity_kernel(embeddings, batch_size=16):

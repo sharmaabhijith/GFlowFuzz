@@ -13,17 +13,20 @@ distiller:
   instruction: "Please summarize the documentation provided in a concise manner to describe the usage and functionality of the target"
 
 instructor:
-  engine_name: "meta-llama/Meta-Llama-3-8B-Instruct"  # Model name for the instructor
+  api_name: "deepinfra"
+  llm_config: 
+    engine_name: "mistralai/Mistral-7B-Instruct-v0.3"  # Model name for the instructor
+    max_tokens: 256                       # Maximum length of each instruction
+    temperature: 0.7                  # Sampling temperature for instructions
+    messages: []
   template:                         # Describe the context of instruction generation
-    main: "You are a sequential instruction generation tool."
-    desc: "Your task is to create an instruction set as a guide for generating code. The instruction set is a sequence of instructions where each instruction adds a new layer of incremental complexity to the existing description of requirements."
-    note: "DO NOT generate any code. Only generate instructions." # Add specific restrictions 
+    main: "You are a instruction generation tool."
+    desc: "Your task is to create a sequence of instructions. Each instruction must be short and precise description a specific requirement to be tested. Each instruction must add a new layer of incremental complexity to the existing description of requirements."
+    note: "DO NOT generate any code. DO NOT ask any questions. Only generate short instructions." # Add specific restrictions 
     next: "Generate the next instruction:"  # To guide LLM to generate the next instruction
   separator: "\n"                 # Separator for instructions
   max_instructions: 10              # Maximum number of instructions in a sequence
-  temperature: 1.0                  # Sampling temperature for instructions
-  max_len: 256                       # Maximum length of each instruction
-  device: "auto"                    # Use auto device mapping for model
+  device: "cuda"                    # Use auto device mapping for model
 
 coder:
   api_name: "deepinfra"
