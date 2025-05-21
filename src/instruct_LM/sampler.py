@@ -143,7 +143,9 @@ class Sampler:
             self.logger.log(f"Error during training step: {e}\n{traceback.format_exc()}", LEVEL.INFO)
             raise
 
-        
+    def summarize_instructions(self, prompt_text: str) -> str:
+        return self.instructor.summarize_instructions(prompt_text)
+
     def sample_instruction_sequence(
         self,
         initial_prompt: str,

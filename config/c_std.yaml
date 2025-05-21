@@ -20,7 +20,7 @@ instructor:
     temperature: 1                  # Sampling temperature for instructions
     messages: []
   template:                         # Describe the context of instruction generation
-    main: "You are a instruction generation tool. Only provide the final answer. Do not include any reasoning, thoughts tags."
+    main: "You are a instruction generation tool."
     desc: "Your task is to generate one short instruction at a time. Each instruction must be description of a specific requirement from the compiler description to be tested. Each instruction must add a new layer of incremental complexity to the existing description of requirements for the generation of C program."
     note: "DO NOT generate any code. Instructions must be cohesive to guide the generation of single C program." # Add specific restrictions 
     next: "Generate the next short instruction."  # To guide LLM to generate the next instruction
@@ -34,7 +34,7 @@ coder:
   instruction: "/* Please create a advanced C program following all the instructions closely. I need the code to have good coverage for testing compiler for potential discovery of bugs.*/"
   device: "cuda"
   llm_config: 
-    engine_name: "deepseek-ai/DeepSeek-R1"
+    engine_name: "Qwen/Qwen2.5-Coder-32B-Instruct"
     max_tokens: 1000
     temperature: 2
     messages: []

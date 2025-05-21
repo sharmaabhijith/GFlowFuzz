@@ -38,7 +38,8 @@ class InstructionSequence:
         
     def get_full_text(
         self, 
-        separator: str = "\n", 
+        separator: str = "\n",
+        summarized: bool = False
     ) -> str | List[dict]:
         """
         Get the full text of the sequence, including the prompt and all instructions.
@@ -57,13 +58,22 @@ class InstructionSequence:
             f"INSTRUCTIONS:",
         ]
         instruction_lines.extend(self.instructions)
-        instruction_lines.extend(
-            [
-                f"TASK: {self.template['desc']}",
-                f"NOTE: {self.template['note']}"
-            ]
-        )
-        content = separator.join(instruction_lines)
+        if summarized:
+            instruction_lines.extend(
+                [
+                    "TASK: Please summarize the instructions in a concise manner to describe requirements for the generation of C program.",
+                    f"NOTE: {self.template['note']}"
+                ]
+            )
+            return separator.join(instruction_lines)
+        else:
+            instruction_lines.extend(
+                [
+                    f"TASK: {self.template['desc']}",
+                    f"NOTE: {self.template['note']}"
+                ]
+            )
+            content = separator.join(instruction_lines)
         
         if self.api_name != "local":
             return [
@@ -219,7 +229,7 @@ class Instructor:
         except Exception as e:
             self.logger.log(f"Error during instruction generation: {e}\n{traceback.format_exc()}", LEVEL.INFO)
             raise
-
+        
 
     def generate_instruction(self, prompt_text: str) -> Tuple[str, float, float]:
         if self.api_name != "local":
