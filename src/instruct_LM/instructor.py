@@ -1,21 +1,9 @@
 import torch
-from typing import List, Tuple
+from typing import List, Tuple, Any, Optional
 import torch.nn.functional as F
-from transformers import (
-    AutoConfig,
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    get_linear_schedule_with_warmup,
-)
-from peft import LoraConfig, get_peft_model
-import torch.nn as nn
-from dataclasses import asdict
-from trainer.utils import TrainerConfig
-from instruct_LM.utils import InstructorConfig
 from logger import GlobberLogger, LEVEL
-import os
-import time
 import traceback
+
 
 class InstructionSequence:
     """
@@ -26,13 +14,15 @@ class InstructionSequence:
         instructions (List[str]): List of generated instructions.
     """
     
-    def __init__(self, initial_prompt: str = "", template: dict = None):
+    def __init__(self, api_name: str, engine_name: str, initial_prompt: str = "", template: dict = None):
         """
         Initialize the instruction sequence with an optional initial prompt.
         
         Args:
             initial_prompt (str): The starting prompt text. Default is an empty string.
         """
+        self.api_name = api_name
+        self.engine_name = engine_name
         self.initial_prompt = initial_prompt  # Single string containing the initial prompt.
         self.template = template
         self.instructions = []  # List of strings, each representing an instruction.
@@ -49,8 +39,7 @@ class InstructionSequence:
     def get_full_text(
         self, 
         separator: str = "\n", 
-        instruct_format: str = "llama"
-    ) -> str:
+    ) -> str | List[dict]:
         """
         Get the full text of the sequence, including the prompt and all instructions.
 
@@ -71,28 +60,31 @@ class InstructionSequence:
         instruction_lines.extend(f"{i} - {instr}" for i, instr in enumerate(self.instructions))
         content = separator.join(instruction_lines)
         
-
-        if instruct_format.lower() == "llama":
-            content = content + "\n" + self.template["next"]
-            return (
-                "<|system|>\n"
-                f"{self.template['main']}\n"
-                "<|user|>\n"
-                f"{content}\n"
-                "<|assistant|>\n"
-            )
-        elif instruct_format.lower() == "mistral":
-            # Mistral doesn't use separate system/user tags, just [INST] ... [/INST]
-            content = content + "\n" + self.template["next"]
-            prompt = (
-                f"{self.template['main']}\n{content}"
-            )
-            return f"[INST] {prompt.strip()} [/INST]"
-        elif instruct_format.lower() == "plain":
-            # No special formatting, just return everything together
-            return content
+        if self.api_name != "local":
+            return [
+                {"role": "system", "content": self.template["main"]},
+                {"role": "user", "content": content}
+            ]
         else:
-            raise ValueError(f"Unknown instruct_format: {instruct_format}")
+            if "llama" in self.engine_name.lower():
+                content = content + "\n" + self.template["next"]
+                return (
+                    "<|system|>\n"
+                    f"{self.template['main']}\n"
+                    "<|user|>\n"
+                    f"{content}\n"
+                    "<|assistant|>\n"
+                )
+            elif "mistral" in self.engine_name.lower():
+                # Mistral doesn't use separate system/user tags, just [INST] ... [/INST]
+                content = content + "\n" + self.template["next"]
+                prompt = (
+                    f"{self.template['main']}\n{content}"
+                )
+                return f"[INST] {prompt.strip()} [/INST]"
+            else:
+                # No special formatting, just return everything together
+                return content
 
     
     def __len__(self) -> int:
@@ -111,21 +103,27 @@ class Instructor:
 
     def __init__(
             self, 
-            instructor_config: InstructorConfig,
-            trainer_config: TrainerConfig
+            api_name: str,
+            model: Optional[Any] = None,
+            tokenizer: Optional[Any] = None,
+            llm_client: Optional[Any] = None,
+            llm_config: Optional[Any] = None,
+            stop_sequences: List[str] = None,
+            device: str = "cuda"
         ):
-        self.engine_name = instructor_config.engine_name
-        self.template = asdict(instructor_config.template)
-        self.separator = instructor_config.separator
-        self.max_instructions = instructor_config.max_instructions
-        self.temperature = instructor_config.temperature
-        self.max_len = instructor_config.max_len
-        self.device = instructor_config.device
-        self.__setup_model_and_optimizer(trainer_config)
+        self.api_name = api_name
+        self.model = model
+        self.tokenizer = tokenizer
+        self.llm_client = llm_client
+        self.llm_config = llm_config
+        self.stop_sequences = stop_sequences
+        self.device = device
+        # Initialize logger
         self.logger = GlobberLogger("instructor.log", level=LEVEL.INFO)
         self.logger.log("Instructor initialized.", LEVEL.INFO)
 
-    def _avg_pooling(
+
+    def __avg_pooling(
             self, last_hidden: torch.Tensor, attention_mask: torch.Tensor
         ) -> torch.Tensor:
         """
@@ -144,14 +142,14 @@ class Instructor:
         denom = torch.clamp(input_mask_expanded.sum(1), min=1)  # Avoid division by zero
         avg_pool = torch.sum(last_hidden * input_mask_expanded, 1) / denom
         return avg_pool
+    
+    def __generate_instruction_api(self, prompt_text: str) -> str:
+        self.logger.log(f"API instruction generation started. prompt: {str(prompt_text)[:200]}", LEVEL.TRACE)
+        self.llm_config.messages = prompt_text
+        response = self.llm_client.request(self.llm_config)
+        return response.content
 
-    def generate_instruction(
-        self, 
-        prompt_text: str,
-        temperature: float,
-        max_len: int,
-        stop_sequences: List[str] = None
-    ) -> Tuple[str, float, float]:
+    def __generate_instruction_local(self, prompt_text: str) -> Tuple[str, float, float]:
         self.logger.log(f"generate_instruction called with prompt_text: {str(prompt_text)[:200]}, temperature: {temperature}, max_len: {max_len}, stop_sequences: {stop_sequences}", LEVEL.TRACE)
         try:
             # Tokenize with proper padding
@@ -169,15 +167,15 @@ class Instructor:
                 attention_mask=prompt_attention_mask,
                 output_hidden_states=True
             )
-            # last_hidden = outputs.hidden_states[-1]
-            # avg_pool = self._avg_pooling(last_hidden, prompt_attention_mask)
-            # log_z = self.model.proj_z(avg_pool).squeeze(-1)
+            last_hidden = outputs.hidden_states[-1]
+            avg_pool = self.__avg_pooling(last_hidden, prompt_attention_mask)
+            log_z = self.model.proj_z(avg_pool).squeeze(-1)
             
             gen_output = self.model.generate(
                 **tokenized,
                 do_sample=True,
-                max_new_tokens=max_len,
-                temperature=temperature,
+                max_new_tokens=self.llm_config.max_tokens,
+                temperature=self.llm_config.temperature,
                 repetition_penalty=1.1,  # Prevent repetition
                 output_scores=True,
                 return_dict_in_generate=True,
@@ -188,9 +186,9 @@ class Instructor:
             scores = gen_output.scores
             # Handle stop sequences
             stop_positions = []
-            if stop_sequences:
+            if self.stop_sequences:
                 generated_text = self.tokenizer.decode(generated_ids[0], skip_special_tokens=False)
-                for stop in stop_sequences:
+                for stop in self.stop_sequences:
                     pos = generated_text.find(stop)
                     if pos != -1:
                         stop_positions.append(pos)
@@ -212,9 +210,16 @@ class Instructor:
             # Clean up any remaining special tokens or formatting
             print(instruction_text)
             instruction_text = instruction_text.replace("<|assistant|>", "").replace("<|user|>", "").strip()
-            #self.logger.log(f"Generated instruction: {str(instruction_text)[:200]}, log_prob: {sum_logpf.item()}, log_z: {log_z.item() if hasattr(log_z, 'item') else log_z}", LEVEL.VERBOSE)
+            self.logger.log(f"Generated instruction: {str(instruction_text)[:200]}, log_prob: {sum_logpf.item()}, log_z: {log_z.item() if hasattr(log_z, 'item') else log_z}", LEVEL.VERBOSE)
             return instruction_text, sum_logpf, 0
             
         except Exception as e:
             self.logger.log(f"Error during instruction generation: {e}\n{traceback.format_exc()}", LEVEL.INFO)
             raise
+
+
+    def generate_instruction(self, prompt_text: str):
+        if self.api_name != "local":
+            return self.__generate_instruction_api(prompt_text)
+        else:
+            return self.__generate_instruction_local(prompt_text)

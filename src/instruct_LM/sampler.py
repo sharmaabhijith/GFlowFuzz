@@ -13,10 +13,11 @@ from dataclasses import asdict
 from trainer.utils import TrainerConfig
 from instruct_LM.utils import InstructorConfig
 from logger import GlobberLogger, LEVEL
-import os
 import time
 import traceback
 from instruct_LM.instructor import InstructionSequence, Instructor
+from coder_LM.base_coder import get_LLM_client
+
 
 class Sampler:
     """Handles instruction-level generation logic and manages its own LLM and training."""
@@ -26,20 +27,40 @@ class Sampler:
             instructor_config: InstructorConfig,
             trainer_config: TrainerConfig
         ):
+        self.api_name = instructor_config.api_name
+        # LLM configs
         self.llm_config = instructor_config.llm_config
-        self.llm_client = get_LLM_client(
-            api_name = instructor_config.api_name, 
-            engine_name = self.llm_config.engine_name
-        )
+        self.engine_name = self.llm_config.engine_name
+        self.temperature = self.llm_config.temperature
+        self.max_len = self.llm_config.max_tokens
+        # Instruction config
         self.template = asdict(instructor_config.template)
         self.separator = instructor_config.separator
         self.max_instructions = instructor_config.max_instructions
-        self.temperature = self.llm_config.temperature
-        self.max_len = self.llm_config.max_tokens
-        self.device = instructor_config.device
-        self.__setup_model_and_optimizer(trainer_config)
+        # Setup model and optimizer based on API or local
+        if self.api_name!="local":
+            self.model, self.tokenizer = None, None
+            self.llm_client = get_LLM_client(
+                api_name = self.api_name, 
+                engine_name = self.engine_name
+            )
+        else:
+            self.device = instructor_config.device
+            self.model, self.tokenizer = self.__setup_model_and_optimizer(trainer_config)
+        # Initialize logger
         self.logger = GlobberLogger("sampler.log", level=LEVEL.INFO)
-        self.logger.log("Instructor initialized.", LEVEL.INFO)
+        self.logger.log("Sampler initialized.", LEVEL.INFO)
+        # Initialize instructor
+        self.instructor = Instructor(
+            api_name=self.api_name,
+            model=self.model,
+            tokenizer=self.tokenizer,
+            llm_client=self.llm_client,
+            llm_config=self.llm_config,
+            device=self.device,
+            stop_sequences=self.stop_sequences
+        )
+
 
     def __setup_model_and_optimizer(self, trainer_config):
         """
@@ -59,7 +80,7 @@ class Sampler:
             use_flash_attention_2=True,  # Enable Flash Attention 2 for better performance
             torch_dtype=torch.float16    # Use float16 for better memory efficiency while maintaining precision
         )
-        Setup LoRA configuration for Llama 3
+        # Setup LoRA configuration for Llama 3
         lora_config = LoraConfig(
             r=trainer_config.lora_r,
             lora_alpha=trainer_config.lora_alpha,
@@ -132,23 +153,24 @@ class Sampler:
         self.logger.log(f"generate_instruction_sequence called with initial_prompt: {str(initial_prompt)[:200]}", LEVEL.TRACE)
         start_time = time.time()
         try:
-            sequence = InstructionSequence(initial_prompt, self.template)
+            sequence = InstructionSequence(
+                api_name=self.api_name,
+                engine_name=self.engine_name,
+                initial_prompt=initial_prompt,
+                template=self.template
+            )
             log_probs = []
             log_zs = []
             for idx in range(self.max_instructions):
-                intermediate_prompt = sequence.get_full_text(self.separator, instruct_format="mistral")
+                intermediate_prompt = sequence.get_full_text(self.separator)
                 self.logger.log(f"Generating instruction {idx} with prompt: {str(intermediate_prompt)[:200]}", LEVEL.TRACE)
-                instruction, log_prob, log_z = self.generate_instruction(
-                    intermediate_prompt, 
-                    temperature=self.temperature, 
-                    max_len=self.max_len, 
-                )
+                instruction, log_prob, log_z = self.instructor.generate_instruction(intermediate_prompt)
                 sequence.add_instruction(instruction)
                 log_probs.append(log_prob)
                 log_zs.append(log_z)
                 self.logger.log(f"Instruction {idx}: {str(instruction)[:200]}, log_prob: {log_prob.item() if hasattr(log_prob, 'item') else log_prob}, log_z: {log_z.item() if hasattr(log_z, 'item') else log_z}", LEVEL.VERBOSE)
             end_time = time.time()
-            final_prompt = sequence.get_full_text(self.separator, instruct_format="plain")
+            final_prompt = sequence.get_full_text(self.separator)
             self.logger.log(f"Instruction sequence generation complete in {end_time - start_time:.2f}s", LEVEL.TRACE)
             return final_prompt, log_probs, log_zs
         except Exception as e:

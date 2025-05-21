@@ -21,7 +21,7 @@ from rich.progress import (
 )
 
 from distiller_LM import Distiller, DistillerConfig
-from instruct_LM import Instructor, InstructorConfig, InstructionBuffer
+from instruct_LM import Sampler, Instructor, InstructorConfig, InstructionBuffer
 from coder_LM import Coder, CoderConfig
 from SUT import make_SUT, SUTConfig
 from oracle import Inspector
@@ -77,7 +77,7 @@ class Fuzzer:
             SUT=self.SUT,
             output_folder=self.output_folders["distilled_prompts"]
         )
-        self.instructor = Instructor(
+        self.instructor = Sampler(
             instructor_config=instructor_config,
             trainer_config=trainer_config
         )
@@ -187,7 +187,7 @@ class Fuzzer:
                     ):
                     iter_start = time.time()
                     self.logger.log(f"Fuzzing iteration {self.count}", LEVEL.TRACE)
-                    final_prompt, log_probs, log_zs = self.instructor.generate_instruction_sequence(self.prompt)
+                    final_prompt, log_probs, log_zs = self.instructor.sample_instruction_sequence(self.prompt)
                     self.logger.log(f"Log_probs: {str(log_probs)[:300]}", LEVEL.VERBOSE)
                     self.logger.log(f"Log_zs: {str(log_zs)[:300]}", LEVEL.VERBOSE)
                     file_name = os.path.join(self.output_folders["instruct_prompts"], f"{self.count}.txt")
