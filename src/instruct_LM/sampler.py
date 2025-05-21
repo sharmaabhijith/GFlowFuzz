@@ -144,7 +144,7 @@ class Sampler:
             raise
 
     def summarize_instructions(self, prompt_text: str) -> str:
-        return self.instructor.summarize_instructions(prompt_text)
+        return self.instructor.get_full_text(prompt_text, summarized=True)
 
     def sample_instruction_sequence(
         self,
