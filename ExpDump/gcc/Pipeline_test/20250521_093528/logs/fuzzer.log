@@ -1,0 +1,24 @@
+[2025-05-21 09:35:28][INFO] Fuzzer initialized.
+[2025-05-21 09:35:28][TRACE] SUTConfig: SUTConfig(language='c', path_documentation='config/documentation/c/c_std.md', path_example_code=None, trigger_to_generate_input='Please generate a correct and valid code following the given task instructions.', input_hint='#include <stdlib.h>', path_hand_written_prompt=None, SUT_string='', timeout=10, folder='fuzz_outputs', batch_size=1, temperature=0.8, max_length=1024, device='cuda', log_level='VERBOSE', template='fuzzing_with_config_file', lambda_hyper=0.1, beta1_hyper=1.0, special_eos=None, oracle_type='opt_and_qasm')
+[2025-05-21 09:35:28][TRACE] FuzzerConfig: FuzzerConfig(number_of_iterations=10, total_time=1, log_level=1, resume=False, otf=False)
+[2025-05-21 09:35:28][TRACE] CoderConfig: CoderConfig(system_message='You are an expert and advanced coding tool.', instruction='/* Please create a advanced C program following all the instructions closely. I need the code to have good coverage for testing compiler for potential discovery of bugs.*/', api_name='deepinfra', device='cuda', llm_config=LLMConfig(messages=[], max_tokens=1000, temperature=2, engine_name='deepseek-ai/DeepSeek-R1'))
+[2025-05-21 09:35:28][TRACE] TrainerConfig: TrainerConfig(device='cuda', batch_size=1, sft_ckpt='checkpoint', train_steps=1000, grad_acc_steps=1, lr=0.0001, max_norm=1.0, num_warmup_steps=10, lora_r=8, lora_alpha=32, lora_dropout=0.1, buffer_size=100, prioritization=True)
+[2025-05-21 09:35:28][TRACE] DistillerConfig: DistillerConfig(api_name='deepinfra', llm_config=LLMConfig(messages=[], max_tokens=2000, temperature=2, engine_name='deepseek-ai/DeepSeek-R1'), system_message='You are an auto-prompting tool. Only provide the final answer. Do not include any reasoning, thoughts, or <think> tags.', instruction='Please summarize the documentation provided in a concise manner to describe the usage and functionality of the target. DO NOT generate thinking step')
+[2025-05-21 09:35:28][INFO] Fuzzer training started.
+[2025-05-21 09:35:28][TRACE] Generating initial prompt using distiller...
+[2025-05-21 09:35:28][TRACE] Fuzzing iteration 0
+[2025-05-21 09:35:56][TRACE] Writing instructions to file: ExpDump/gcc/Pipeline_test/20250521_093528/instruct_prompts/0.txt
+[2025-05-21 09:35:56][TRACE] Iteration 0 duration: 27.95s
+[2025-05-21 09:35:56][TRACE] Fuzzing iteration 1
+[2025-05-21 09:36:24][TRACE] Writing instructions to file: ExpDump/gcc/Pipeline_test/20250521_093528/instruct_prompts/1.txt
+[2025-05-21 09:36:24][TRACE] Iteration 1 duration: 27.63s
+[2025-05-21 09:36:24][TRACE] Fuzzing iteration 2
+[2025-05-21 09:36:49][TRACE] Writing instructions to file: ExpDump/gcc/Pipeline_test/20250521_093528/instruct_prompts/2.txt
+[2025-05-21 09:36:49][TRACE] Iteration 2 duration: 25.20s
+[2025-05-21 09:36:49][TRACE] Fuzzing iteration 3
+[2025-05-21 09:37:30][TRACE] Writing instructions to file: ExpDump/gcc/Pipeline_test/20250521_093528/instruct_prompts/3.txt
+[2025-05-21 09:37:30][TRACE] Iteration 3 duration: 41.08s
+[2025-05-21 09:37:30][TRACE] Fuzzing iteration 4
+[2025-05-21 09:38:07][TRACE] Writing instructions to file: ExpDump/gcc/Pipeline_test/20250521_093528/instruct_prompts/4.txt
+[2025-05-21 09:38:07][TRACE] Iteration 4 duration: 37.46s
+[2025-05-21 09:38:07][TRACE] Fuzzing iteration 5

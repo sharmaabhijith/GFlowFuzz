@@ -194,16 +194,16 @@ class Fuzzer:
                     self.logger.log(f"Writing instructions to file: {file_name}", LEVEL.TRACE)
                     with open(file_name, "w", encoding="utf-8") as f:
                         f.write(final_prompt)
-                    # fos = self.coder.generate_code(prompt=final_prompt)
-                    # self.logger.log(f"Generated code samples:", LEVEL.TRACE)
-                    # for fo in fos:
-                    #     self.logger.log(f"Evaluating code sample:", LEVEL.TRACE)
-                    #     f_result, sut_message, reward = self.oracle.inspect(
-                    #         fo = fo,
-                    #         output_folder = self.output_folders["fuzz_code"],
-                    #         count = self.count,
-                    #         otf = self.otf,
-                    #     )
+                    fos = self.coder.generate_code(prompt=final_prompt)
+                    self.logger.log(f"Generated code samples:", LEVEL.TRACE)
+                    for fo in fos:
+                        self.logger.log(f"Evaluating code sample:", LEVEL.TRACE)
+                        f_result, sut_message, reward = self.oracle.inspect(
+                            fo = fo,
+                            output_folder = self.output_folders["fuzz_code"],
+                            count = self.count,
+                            otf = self.otf,
+                        )
                     #     self.logger.log(f"Reward: {reward}", LEVEL.VERBOSE)
                     #     self.logger.log(f"SUT message: {sut_message}", LEVEL.VERBOSE)
                     #     self.logger.log(f"Fuzz result: {f_result}", LEVEL.VERBOSE)
@@ -216,9 +216,9 @@ class Fuzzer:
                         # self.logger.log(f"Loss value: {loss_value}", LEVEL.VERBOSE)
             #             if self.count % 100 == 0:
             #                 self.logger.log(f"Checkpoint saved at step {self.count}", LEVEL.INFO)
-            #             iter_end = time.time()
-            #             self.logger.log(f"Iteration {self.count} duration: {iter_end - iter_start:.2f}s", LEVEL.TRACE)
-            #             self.count += 1
+                    iter_end = time.time()
+                    self.logger.log(f"Iteration {self.count} duration: {iter_end - iter_start:.2f}s", LEVEL.TRACE)
+                    self.count += 1
             # end_time = time.time()
             # self.logger.log(f"Fuzzer training completed in {end_time - start_time:.2f}s.", LEVEL.INFO)
         except Exception as e:

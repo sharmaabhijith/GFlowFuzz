@@ -53,11 +53,16 @@ class InstructionSequence:
         
         # Compose base instruction lines
         instruction_lines = [
-            f"INITIAL PROMPT: {self.initial_prompt}",
-            f"TASK: {self.template['desc']}",
-            f"NOTE: {self.template['note']}"
+            f"INITIAL KNOWLEDGE: {self.initial_prompt}",
+            f"INSTRUCTIONS:",
         ]
-        instruction_lines.extend(f"{i} - {instr}" for i, instr in enumerate(self.instructions))
+        instruction_lines.extend(self.instructions)
+        instruction_lines.extend(
+            [
+                f"TASK: {self.template['desc']}",
+                f"NOTE: {self.template['note']}"
+            ]
+        )
         content = separator.join(instruction_lines)
         
         if self.api_name != "local":
@@ -108,7 +113,6 @@ class Instructor:
             tokenizer: Optional[Any] = None,
             llm_client: Optional[Any] = None,
             llm_config: Optional[Any] = None,
-            stop_sequences: List[str] = None,
             device: str = "cuda"
         ):
         self.api_name = api_name
@@ -116,7 +120,6 @@ class Instructor:
         self.tokenizer = tokenizer
         self.llm_client = llm_client
         self.llm_config = llm_config
-        self.stop_sequences = stop_sequences
         self.device = device
         # Initialize logger
         self.logger = GlobberLogger("instructor.log", level=LEVEL.INFO)
@@ -143,14 +146,14 @@ class Instructor:
         avg_pool = torch.sum(last_hidden * input_mask_expanded, 1) / denom
         return avg_pool
     
-    def __generate_instruction_api(self, prompt_text: str) -> str:
+    def __generate_instruction_api(self, prompt_text: str) -> Tuple[str, float, float]:
         self.logger.log(f"API instruction generation started. prompt: {str(prompt_text)[:200]}", LEVEL.TRACE)
         self.llm_config.messages = prompt_text
         response = self.llm_client.request(self.llm_config)
-        return response.content
+        return response.content, 0, 0
 
     def __generate_instruction_local(self, prompt_text: str) -> Tuple[str, float, float]:
-        self.logger.log(f"generate_instruction called with prompt_text: {str(prompt_text)[:200]}, temperature: {temperature}, max_len: {max_len}, stop_sequences: {stop_sequences}", LEVEL.TRACE)
+        self.logger.log(f"generate_instruction called with prompt_text: {str(prompt_text)[:200]}, temperature: {temperature}, max_len: {max_len}", LEVEL.TRACE)
         try:
             # Tokenize with proper padding
             tokenized = self.tokenizer(
@@ -186,12 +189,12 @@ class Instructor:
             scores = gen_output.scores
             # Handle stop sequences
             stop_positions = []
-            if self.stop_sequences:
-                generated_text = self.tokenizer.decode(generated_ids[0], skip_special_tokens=False)
-                for stop in self.stop_sequences:
-                    pos = generated_text.find(stop)
-                    if pos != -1:
-                        stop_positions.append(pos)
+            # if self.stop_sequences:
+            #     generated_text = self.tokenizer.decode(generated_ids[0], skip_special_tokens=False)
+            #     for stop in self.stop_sequences:
+            #         pos = generated_text.find(stop)
+            #         if pos != -1:
+            #             stop_positions.append(pos)
             # Calculate log probabilities
             sum_logpf = torch.zeros(1, device=self.model.device)
             for i, score in enumerate(scores):
@@ -218,7 +221,7 @@ class Instructor:
             raise
 
 
-    def generate_instruction(self, prompt_text: str):
+    def generate_instruction(self, prompt_text: str) -> Tuple[str, float, float]:
         if self.api_name != "local":
             return self.__generate_instruction_api(prompt_text)
         else:

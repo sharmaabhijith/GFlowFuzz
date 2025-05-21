@@ -5,25 +5,25 @@ exp_name: "Pipeline_test"
 distiller:
   api_name: "deepinfra"
   llm_config: 
-    engine_name: "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
-    max_tokens: 1000
+    engine_name: "deepseek-ai/DeepSeek-R1"
+    max_tokens: 2000
     temperature: 2
     messages: []
-  system_message: "You are an auto-prompting tool"
-  instruction: "Please summarize the documentation provided in a concise manner to describe the usage and functionality of the target"
+  system_message: "You are an auto-prompting tool. Only provide the final answer. Do not include any reasoning, thoughts, or <think> tags."
+  instruction: "Please summarize the documentation provided in a concise manner to describe the usage and functionality of the target. DO NOT generate thinking step"
 
 instructor:
   api_name: "deepinfra"
   llm_config: 
-    engine_name: "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"  # Model name for the instructor
+    engine_name: "meta-llama/Meta-Llama-3.1-405B-Instruct"  # Model name for the instructor
     max_tokens: 256                       # Maximum length of each instruction
-    temperature: 0.7                  # Sampling temperature for instructions
+    temperature: 1                  # Sampling temperature for instructions
     messages: []
   template:                         # Describe the context of instruction generation
-    main: "You are a instruction generation tool."
-    desc: "Your task is to generate one instruction at a time. Each instruction must be short and precise description of a specific requirement to be tested. Each instruction must add a new layer of incremental complexity to the existing description of requirements. In the end all the instructions will be combined to generate a complete C program by the Coder LM."
-    note: "DO NOT generate any code. DO NOT ask any questions." # Add specific restrictions 
-    next: "Generate the next instruction:"  # To guide LLM to generate the next instruction
+    main: "You are a instruction generation tool. Only provide the final answer. Do not include any reasoning, thoughts tags."
+    desc: "Your task is to generate one short instruction at a time. Each instruction must be description of a specific requirement from the compiler description to be tested. Each instruction must add a new layer of incremental complexity to the existing description of requirements for the generation of C program."
+    note: "DO NOT generate any code. Instructions must be cohesive to guide the generation of single C program." # Add specific restrictions 
+    next: "Generate the next short instruction."  # To guide LLM to generate the next instruction
   separator: "\n"                 # Separator for instructions
   max_instructions: 10              # Maximum number of instructions in a sequence
   device: "cuda"                    # Use auto device mapping for model
@@ -34,7 +34,7 @@ coder:
   instruction: "/* Please create a advanced C program following all the instructions closely. I need the code to have good coverage for testing compiler for potential discovery of bugs.*/"
   device: "cuda"
   llm_config: 
-    engine_name: "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
+    engine_name: "deepseek-ai/DeepSeek-R1"
     max_tokens: 1000
     temperature: 2
     messages: []

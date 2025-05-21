@@ -45,7 +45,6 @@ class Sampler:
                 engine_name = self.engine_name
             )
         else:
-            self.device = instructor_config.device
             self.model, self.tokenizer = self.__setup_model_and_optimizer(trainer_config)
         # Initialize logger
         self.logger = GlobberLogger("sampler.log", level=LEVEL.INFO)
@@ -57,8 +56,7 @@ class Sampler:
             tokenizer=self.tokenizer,
             llm_client=self.llm_client,
             llm_config=self.llm_config,
-            device=self.device,
-            stop_sequences=self.stop_sequences
+            device=instructor_config.device,
         )
 
 
@@ -149,7 +147,7 @@ class Sampler:
     def sample_instruction_sequence(
         self,
         initial_prompt: str,
-    ) -> Tuple['InstructionSequence', List[float], List[float]]:
+    ) -> Tuple[InstructionSequence, List[float], List[float]]:
         self.logger.log(f"generate_instruction_sequence called with initial_prompt: {str(initial_prompt)[:200]}", LEVEL.TRACE)
         start_time = time.time()
         try:
@@ -170,8 +168,9 @@ class Sampler:
                 log_zs.append(log_z)
                 self.logger.log(f"Instruction {idx}: {str(instruction)[:200]}, log_prob: {log_prob.item() if hasattr(log_prob, 'item') else log_prob}, log_z: {log_z.item() if hasattr(log_z, 'item') else log_z}", LEVEL.VERBOSE)
             end_time = time.time()
-            final_prompt = sequence.get_full_text(self.separator)
+            final_prompt = sequence.get_full_text(self.separator)[1]["content"]
             self.logger.log(f"Instruction sequence generation complete in {end_time - start_time:.2f}s", LEVEL.TRACE)
+
             return final_prompt, log_probs, log_zs
         except Exception as e:
             self.logger.log(f"Error during instruction sequence generation: {e}\n{traceback.format_exc()}", LEVEL.INFO)

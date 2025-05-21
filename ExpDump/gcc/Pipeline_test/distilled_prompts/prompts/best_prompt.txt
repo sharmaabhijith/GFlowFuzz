@@ -1,22 +1,40 @@
-The C Standard Library is a collection of headers that provide a wide range of functionalities. Here's a concise summary:
+The C Standard Library headers provide essential functionalities for system interaction, data manipulation, and program control. Here's a concise breakdown:
 
-**Functionality Categories**
+**Core Utilities**  
+- `<assert.h>`: Debugging via runtime assertions.  
+- `<stdlib.h>`: Memory management, random numbers, string conversions.  
+- `<stddef.h>`/`<stdarg.h>`: Common macros and variable argument handling.  
+- `<limits.h>`/`<float.h>`: Integer and floating-point type limits.  
 
-1. **Error Handling**: `<assert.h>`, `<errno.h>`, `<stdckdint.h>` (checked integer arithmetic)
-2. **Type and Character Utilities**: `<ctype.h>`, `<stdbool.h>`, `<wctype.h>` (character type determination)
-3. **Integer and Floating-Point Types**: `<limits.h>`, `<float.h>`, `<stdint.h>` (type limits and definitions)
-4. **Mathematics and Numerics**: `<math.h>`, `<complex.h>`, `<tgmath.h>` (mathematical functions)
-5. **Input/Output and Strings**: `<stdio.h>`, `<string.h>`, `<wchar.h>` (input/output and string handling)
-6. **Memory Management and Utilities**: `<stdlib.h>` (memory management, program utilities, etc.)
-7. **Concurrency and Threading**: `<threads.h>`, `<stdatomic.h>` (thread library and atomic operations)
-8. **Localization and Time/Date Utilities**: `<locale.h>`, `<time.h>` (localization and time/date utilities)
-9. **Miscellaneous**: `<setjmp.h>`, `<signal.h>`, `<stdalign.h>`, `<stdarg.h>`, `<stdnoreturn.h>` (nonlocal jumps, signal handling, etc.)
+**I/O & String Handling**  
+- `<stdio.h>`: Input/output operations (e.g., `printf`, `scanf`).  
+- `<string.h>`: String manipulation (e.g., `strcpy`, `memcmp`).  
 
-**Key Features**
+**Mathematics**  
+- `<math.h>`: Basic math functions (e.g., `sin`, `sqrt`).  
+- `<complex.h>` (C99): Complex number arithmetic.  
+- `<tgmath.h>` (C99): Type-generic math macros.  
 
-* Provides a standard interface for various tasks, such as input/output, mathematics, and memory management.
-* Offers a range of data types and functions for working with integers, floating-point numbers, and characters.
-* Supports concurrency and threading through `<threads.h>` and `<stdatomic.h>`.
-* Includes utilities for localization, time/date manipulation, and error handling.
+**Type Support**  
+- `<stdint.h>` (C99)/`<inttypes.h>` (C99): Fixed-width integers and formatting.  
+- `<stdbool.h>` (C99): Boolean type support.  
+- `<wchar.h>` (C95)/`<uchar.h>` (C11): Wide/Unicode character handling.  
 
-Overall, the C Standard Library is a comprehensive collection of headers that provide a foundation for writing efficient, portable, and reliable C code.
+**Error & Environment**  
+- `<errno.h>`: Error code macros.  
+- `<fenv.h>` (C99): Floating-point environment control.  
+
+**Concurrency & Atomicity**  
+- `<stdatomic.h>` (C11)/`<threads.h>` (C11): Atomic operations and threading.  
+
+**Miscellaneous**  
+- `<time.h>`: Time/date utilities.  
+- `<locale.h>`: Localization settings.  
+- `<signal.h>`: Signal handling.  
+- `<setjmp.h>`: Nonlocal jumps.  
+- `<iso646.h>` (C95): Alternative operators (e.g., `&&` as `and`).  
+
+**Recent Additions**  
+- `<stdbit.h>` (C23)/`<stdckdint.h>` (C23): Bit manipulation and checked integer arithmetic.  
+
+Headers marked with (C99/C11/C23) denote features introduced in later standards beyond ANSI C.
