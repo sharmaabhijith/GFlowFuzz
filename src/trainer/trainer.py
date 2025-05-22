@@ -172,26 +172,20 @@ class Fuzzer:
                     ):
                     iter_start = time.time()
                     self.logger.log(f"Fuzzing iteration {self.count}", LEVEL.TRACE)
-                    output = self.instructor.sample_instruction_sequence(self.prompt)
-                    (final_prompt, final_prompt_short, log_probs, log_zs) = output
+                    final_prompt, log_probs, log_zs = self.instructor.sample_instruction_sequence(self.prompt)
                     write_to_file(os.path.join(
                         self.output_folders["instruct_prompts"], f"{self.count}.txt"), 
                         final_prompt
                     )
-                    write_to_file(
-                        os.path.join(self.output_folders["instruct_prompts"], f"{self.count}_short.txt"),
-                        final_prompt_short
-                    )
-                    fos = self.coder.generate_code(prompt=final_prompt_short)
                     self.logger.log(f"Generated code samples:", LEVEL.TRACE)
-                    for fo in fos:
-                        self.logger.log(f"Evaluating code sample:", LEVEL.TRACE)
-                        f_result, sut_message, reward = self.oracle.inspect(
-                            fo = fo,
-                            output_folder = self.output_folders["fuzz_code"],
-                            count = self.count,
-                            otf = self.otf,
-                        )
+                    fo = self.coder.generate_code(prompt=final_prompt)
+                    self.logger.log(f"Evaluating code sample:", LEVEL.TRACE)
+                    f_result, sut_message, reward = self.oracle.inspect(
+                        fo = fo,
+                        output_folder = self.output_folders["fuzz_code"],
+                        count = self.count,
+                        otf = self.otf,
+                    )
                     iter_end = time.time()
                     self.logger.log(f"Iteration {self.count} duration: {iter_end - iter_start:.2f}s", LEVEL.TRACE)
                     self.count += 1

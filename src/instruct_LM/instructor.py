@@ -39,7 +39,7 @@ class InstructionSequence:
     def get_full_text(
         self, 
         separator: str = "\n",
-        summarized: bool = False
+        final: bool = False
     ) -> str | List[dict]:
         """
         Get the full text of the sequence, including the prompt and all instructions.
@@ -58,19 +58,7 @@ class InstructionSequence:
             f"INSTRUCTIONS:",
         ]
         instruction_lines.extend(self.instructions)
-        if summarized:
-            instruction_lines.extend(
-                [
-                    "TASK: Please summarize the instructions in a concise manner to describe requirements for the generation of C program.",
-                    f"NOTE: {self.template['note']}"
-                ]
-            )
-            content = separator.join(instruction_lines)
-            return [
-                {"role": "system", "content": "You are a helpful assistant that summarizes instructions."},
-                {"role": "user", "content": content}
-            ]
-        else:
+        if not final:
             instruction_lines.extend(
                 [
                     f"TASK: {self.template['desc']}",
@@ -78,6 +66,8 @@ class InstructionSequence:
                 ]
             )
             content = separator.join(instruction_lines)
+        else:
+            return separator.join(instruction_lines)
         
         if self.api_name != "local":
             return [
@@ -161,7 +151,7 @@ class Instructor:
         return avg_pool
     
     def __generate_instruction_api(self, prompt_text: str) -> Tuple[str, float, float]:
-        self.logger.log(f"API instruction generation started. prompt: {str(prompt_text)[:200]}", LEVEL.TRACE)
+        self.logger.log(f"API instruction generation started. prompt", LEVEL.TRACE)
         self.llm_config.messages = prompt_text
         response = self.llm_client.request(self.llm_config)
         return response.content, 0, 0

@@ -1,0 +1,71 @@
+INITIAL KNOWLEDGE: The C Standard Library headers provide essential functionalities for system interaction, data manipulation, and program control. Here's a concise breakdown:
+
+**Core Utilities**  
+- `<assert.h>`: Debugging via runtime assertions.  
+- `<stdlib.h>`: Memory management, random numbers, string conversions.  
+- `<stddef.h>`/`<stdarg.h>`: Common macros and variable argument handling.  
+- `<limits.h>`/`<float.h>`: Integer and floating-point type limits.  
+
+**I/O & String Handling**  
+- `<stdio.h>`: Input/output operations (e.g., `printf`, `scanf`).  
+- `<string.h>`: String manipulation (e.g., `strcpy`, `memcmp`).  
+
+**Mathematics**  
+- `<math.h>`: Basic math functions (e.g., `sin`, `sqrt`).  
+- `<complex.h>` (C99): Complex number arithmetic.  
+- `<tgmath.h>` (C99): Type-generic math macros.  
+
+**Type Support**  
+- `<stdint.h>` (C99)/`<inttypes.h>` (C99): Fixed-width integers and formatting.  
+- `<stdbool.h>` (C99): Boolean type support.  
+- `<wchar.h>` (C95)/`<uchar.h>` (C11): Wide/Unicode character handling.  
+
+**Error & Environment**  
+- `<errno.h>`: Error code macros.  
+- `<fenv.h>` (C99): Floating-point environment control.  
+
+**Concurrency & Atomicity**  
+- `<stdatomic.h>` (C11)/`<threads.h>` (C11): Atomic operations and threading.  
+
+**Miscellaneous**  
+- `<time.h>`: Time/date utilities.  
+- `<locale.h>`: Localization settings.  
+- `<signal.h>`: Signal handling.  
+- `<setjmp.h>`: Nonlocal jumps.  
+- `<iso646.h>` (C95): Alternative operators (e.g., `&&` as `and`).  
+
+**Recent Additions**  
+- `<stdbit.h>` (C23)/`<stdckdint.h>` (C23): Bit manipulation and checked integer arithmetic.  
+
+Headers marked with (C99/C11/C23) denote features introduced in later standards beyond ANSI C.
+INSTRUCTIONS:
+**New Requirement:**
+
+The compiler must support the inclusion of the `<stdatomic.h>` header file, which provides atomic operations for multithreading, as specified in the C11 standard. The compiler should be able to recognize and correctly interpret the atomic types and functions defined in this header, ensuring thread-safe access to shared variables.
+**Additional Requirement:**
+
+The compiler must correctly handle the `<errno.h>` header file, ensuring that error code macros are properly defined and can be used to report and handle runtime errors, in accordance with the C Standard Library specifications.
+**New Requirement:**
+
+The compiler must support the inclusion of the `<math.h>` header file, ensuring that basic math functions such as `sin`, `sqrt`, and others are correctly implemented and can be used by the program, as specified in the C Standard Library. The compiler should be able to recognize and correctly interpret the math functions and constants defined in this header, providing accurate results for mathematical operations.
+**New Requirement:**
+
+The compiler must correctly handle the `<time.h>` header file, ensuring that time and date utilities such as `time`, `gmtime`, and `localtime` are correctly implemented and can be used by the program, as specified in the C Standard Library. The compiler should be able to recognize and correctly interpret the time-related functions and structures defined in this header, providing accurate results for time and date operations.
+**New Requirement:**
+
+The compiler must support the inclusion of the `<string.h>` header file, ensuring that string manipulation functions such as `strcpy`, `memcmp`, and others are correctly implemented and can be used by the program, as specified in the C Standard Library. The compiler should be able to recognize and correctly interpret the string functions and macros defined in this header, providing accurate results for string operations.
+**New Requirement:**
+
+The compiler must correctly handle the `<signal.h>` header file, ensuring that signal handling functions such as `signal` and `raise` are correctly implemented and can be used by the program, as specified in the C Standard Library. The compiler should be able to recognize and correctly interpret the signal-related functions, macros, and types defined in this header, providing accurate results for signal handling operations.
+**New Requirement:**
+
+The compiler must support the inclusion of the `<stdarg.h>` header file, ensuring that variable argument handling functions such as `va_start`, `va_arg`, and `va_end` are correctly implemented and can be used by the program, as specified in the C Standard Library. The compiler should be able to recognize and correctly interpret the variable argument handling macros and types defined in this header, providing accurate results for functions with variable numbers of arguments.
+**New Requirement:**
+
+The compiler must correctly handle the `<limits.h>` header file, ensuring that integer type limits such as `INT_MAX`, `INT_MIN`, `UINT_MAX`, and others are correctly defined and can be used by the program, as specified in the C Standard Library. The compiler should be able to recognize and correctly interpret the integer type limits defined in this header, providing accurate results for integer operations and range checking.
+**New Requirement:**
+
+The compiler must correctly handle the `<stddef.h>` header file, ensuring that common macros such as `NULL`, `offsetof`, and `size_t` are correctly defined and can be used by the program, as specified in the C Standard Library. The compiler should be able to recognize and correctly interpret the macros and types defined in this header, providing accurate results for operations involving memory management and data alignment.
+**New Requirement:**
+
+The compiler must support the inclusion of the `<stdio.h>` header file, ensuring that input/output operations such as `printf`, `scanf`, `fopen`, and `fclose` are correctly implemented and can be used by the program, as specified in the C Standard Library. The compiler should be able to recognize and correctly interpret the I/O functions, macros, and types defined in this header, providing accurate results for file and console I/O operations.

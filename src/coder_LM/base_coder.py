@@ -126,4 +126,4 @@ class BaseCoderAPI(BaseCoder):
             {"role": "user", "content": self.format_prompt(prompt) + "\n" + self.instruction}
         ]
         response = self.llm_client.request(self.llm_config)
-        return [response.content]
+        return response.content

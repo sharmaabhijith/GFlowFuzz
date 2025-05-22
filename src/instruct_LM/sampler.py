@@ -166,12 +166,10 @@ class Sampler:
                 log_probs.append(log_prob)
                 log_zs.append(log_z)
             end_time = time.time()
-            final_prompt = sequence.get_full_text(self.separator)[1]["content"]
-            final_prompt_summarized = sequence.get_full_text(self.separator, summarized=True)
-            final_prompt_summarized,_,_ = self.instructor.generate_instruction(final_prompt_summarized)
+            final_prompt = sequence.get_full_text(self.separator, final=True)
             self.logger.log(f"Instruction sequence generation complete in {end_time - start_time:.2f}s", LEVEL.TRACE)
+            return final_prompt, log_probs, log_zs
 
-            return final_prompt, final_prompt_summarized, log_probs, log_zs
         except Exception as e:
             self.logger.log(f"Error during instruction sequence generation: {e}\n{traceback.format_exc()}", LEVEL.INFO)
             raise

@@ -1,0 +1,90 @@
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <time.h>
+#include <signal.h>
+#include <stdarg.h>
+#include <limits.h>
+#include <stddef.h>
+#include <errno.h>
+#include <stdatomic.h>
+
+// Function to demonstrate stdarg.h
+void print_integers(int count, ...) {
+    va_list args;
+    va_start(args, count);
+    for (int i = 0; i < count; i++) {
+        int num = va_arg(args, int);
+        printf("Argument %d: %d\n", i + 1, num);
+    }
+    va_end(args);
+}
+
+// Signal handler function
+void handle_signal(int sig) {
+    printf("Caught signal %d\n", sig);
+}
+
+// Function to demonstrate stdatomic.h
+void atomic_operations() {
+    atomic_int shared_counter = ATOMIC_VAR_INIT(0);
+    atomic_fetch_add(&shared_counter, 1);
+    printf("Atomic counter value: %d\n", atomic_load(&shared_counter));
+}
+
+int main() {
+    // Test stdio.h
+    printf("Hello, World!\n");
+    FILE *file = fopen("test.txt", "w");
+    if (file == NULL) {
+        perror("Failed to open file");
+        return EXIT_FAILURE;
+    }
+    fprintf(file, "This is a test file.\n");
+    fclose(file);
+
+    // Test string.h
+    char src[] = "Hello";
+    char dest[10];
+    strcpy(dest, src);
+    printf("Copied string: %s\n", dest);
+
+    // Test math.h
+    double number = 4.0;
+    double square_root = sqrt(number);
+    printf("Square root of %.2f is %.2f\n", number, square_root);
+
+    // Test time.h
+    time_t current_time;
+    time(&current_time);
+    printf("Current time: %s", ctime(&current_time));
+
+    // Test signal.h
+    signal(SIGINT, handle_signal);
+    printf("Press Ctrl+C to trigger signal handler...\n");
+    pause();
+
+    // Test stdarg.h
+    print_integers(3, 10, 20, 30);
+
+    // Test limits.h
+    printf("Maximum int value: %d\n", INT_MAX);
+    printf("Minimum int value: %d\n", INT_MIN);
+
+    // Test stddef.h
+    printf("Size of size_t: %zu\n", sizeof(size_t));
+
+    // Test errno.h
+    file = fopen("nonexistentfile.txt", "r");
+    if (file == NULL) {
+        perror("Failed to open file");
+    }
+
+    // Test stdatomic.h
+    atomic_operations();
+
+    return EXIT_SUCCESS;
+}
+```
