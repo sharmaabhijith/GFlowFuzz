@@ -26,7 +26,7 @@ from coder_LM import Coder, CoderConfig
 from SUT import make_SUT, SUTConfig
 from oracle import Inspector
 from logger import LEVEL
-from trainer.utils import TrainerConfig, FuzzerConfig
+from trainer.utils import TrainerConfig, FuzzerConfig, write_to_file
 from trainer.checkpointer import CheckpointManager
 from logger import GlobberLogger, LEVEL
 
@@ -82,31 +82,17 @@ class Fuzzer:
             trainer_config=trainer_config
         )
         self.oracle = Inspector(self.SUT)
-        # self.ibuffer = InstructionBuffer(
-        #     max_size=trainer_config.buffer_size,
-        #     prioritization=trainer_config.prioritization
-        # )
-        # # Save reference for checkpointing
-        # self.checkpointer = CheckpointManager(
-        #     save_dir=self.output_folders["checkpoints"],
-        #     exp_name="instructor",
-        #     model=self.instructor.model,
-        #     optimizer=self.instructor.optimizer,
-        #     scheduler=self.instructor.scheduler,
-        #     ibuffer=self.ibuffer
-        # )
         # Initialize the fuzzing variables
         self.count = 0
         self.start_time = 0
-        self.logger = GlobberLogger("fuzzer.log", level=LEVEL.TRACE)
+        self.logger = GlobberLogger("fuzzer.log", level=fuzzer_config.log_level)
         self.logger.log("Fuzzer initialized.", LEVEL.INFO)
         self.logger.log(f"SUTConfig: {SUT_config}", LEVEL.TRACE)
         self.logger.log(f"FuzzerConfig: {fuzzer_config}", LEVEL.TRACE)
         self.logger.log(f"CoderConfig: {coder_config}", LEVEL.TRACE)
         self.logger.log(f"TrainerConfig: {trainer_config}", LEVEL.TRACE)
         self.logger.log(f"DistillerConfig: {distiller_config}", LEVEL.TRACE)
-        # self.logger.log(f"InstructorConfig: {instructor_config}", LEVEL.TRACE)
-        # self.logger.log(f"Resume: {self.resume}, OTF: {self.otf}", LEVEL.TRACE)
+        self.logger.log(f"InstructorConfig: {instructor_config}", LEVEL.TRACE)
         
 
     def __get_resume_count(self) -> int:
@@ -163,7 +149,6 @@ class Fuzzer:
             self.logger.log("Generating initial prompt using distiller...", LEVEL.TRACE)
             message = self.SUT.prompt_used["docstring"]
             self.initial_prompt = self.distiller.generate_prompt(message)
-            self.logger.log(f"Initial prompt: {str(self.initial_prompt)[:300]}", LEVEL.VERBOSE)
             self.prompt = self.initial_prompt
             self.start_time = time.time()
             with Progress(
@@ -187,17 +172,17 @@ class Fuzzer:
                     ):
                     iter_start = time.time()
                     self.logger.log(f"Fuzzing iteration {self.count}", LEVEL.TRACE)
-                    final_prompt, final_prompt_summarized, log_probs, log_zs = self.instructor.sample_instruction_sequence(self.prompt)
-                    self.logger.log(f"Log_probs: {str(log_probs)[:300]}", LEVEL.VERBOSE)
-                    self.logger.log(f"Log_zs: {str(log_zs)[:300]}", LEVEL.VERBOSE)
-                    file_name = os.path.join(self.output_folders["instruct_prompts"], f"{self.count}.txt")
-                    self.logger.log(f"Writing instructions to file: {file_name}", LEVEL.TRACE)
-                    with open(file_name, "w", encoding="utf-8") as f:
-                        f.write(final_prompt)
-                    file_name = os.path.join(self.output_folders["instruct_prompts"], f"{self.count}_summarized.txt")
-                    with open(file_name, "w", encoding="utf-8") as f:
-                        f.write(str(final_prompt_summarized))
-                    fos = self.coder.generate_code(prompt=final_prompt_summarized)
+                    output = self.instructor.sample_instruction_sequence(self.prompt)
+                    (final_prompt, final_prompt_short, log_probs, log_zs) = output
+                    write_to_file(os.path.join(
+                        self.output_folders["instruct_prompts"], f"{self.count}.txt"), 
+                        final_prompt
+                    )
+                    write_to_file(
+                        os.path.join(self.output_folders["instruct_prompts"], f"{self.count}_short.txt"),
+                        final_prompt_short
+                    )
+                    fos = self.coder.generate_code(prompt=final_prompt_short)
                     self.logger.log(f"Generated code samples:", LEVEL.TRACE)
                     for fo in fos:
                         self.logger.log(f"Evaluating code sample:", LEVEL.TRACE)
@@ -207,23 +192,11 @@ class Fuzzer:
                             count = self.count,
                             otf = self.otf,
                         )
-                    #     self.logger.log(f"Reward: {reward}", LEVEL.VERBOSE)
-                    #     self.logger.log(f"SUT message: {sut_message}", LEVEL.VERBOSE)
-                    #     self.logger.log(f"Fuzz result: {f_result}", LEVEL.VERBOSE)
-                        # loss_value = self.instructor.train_step(
-                        #     log_=sum(log_zs), 
-                        #     log_prob_sum=sum(log_probs), 
-                        #     reward=reward, 
-                        #     max_norm=self.max_norm
-                        # )
-                        # self.logger.log(f"Loss value: {loss_value}", LEVEL.VERBOSE)
-            #             if self.count % 100 == 0:
-            #                 self.logger.log(f"Checkpoint saved at step {self.count}", LEVEL.INFO)
                     iter_end = time.time()
                     self.logger.log(f"Iteration {self.count} duration: {iter_end - iter_start:.2f}s", LEVEL.TRACE)
                     self.count += 1
-            # end_time = time.time()
-            # self.logger.log(f"Fuzzer training completed in {end_time - start_time:.2f}s.", LEVEL.INFO)
+            end_time = time.time()
+            self.logger.log(f"Fuzzer training completed in {end_time - start_time:.2f}s.", LEVEL.INFO)
         except Exception as e:
             self.logger.log(f"Error during training: {e}\n{traceback.format_exc()}", LEVEL.INFO)
             raise

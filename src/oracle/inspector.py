@@ -7,7 +7,7 @@ import traceback
 class Inspector:
     def __init__(self, sut: BaseSUT):
         self.sut = sut
-        self.logger = GlobberLogger("inspector.log", level=LEVEL.INFO)
+        self.logger = GlobberLogger("fuzzer.log", level=LEVEL.TRACE)
         self.logger.log("Inspector initialized.", LEVEL.INFO)
 
     def inspect(self, fo: str, output_folder: str, count: int, otf: bool):

@@ -136,7 +136,7 @@ class Instructor:
         self.llm_config = llm_config
         self.device = device
         # Initialize logger
-        self.logger = GlobberLogger("instructor.log", level=LEVEL.INFO)
+        self.logger = GlobberLogger("fuzzer.log", level=LEVEL.TRACE)
         self.logger.log("Instructor initialized.", LEVEL.INFO)
 
 

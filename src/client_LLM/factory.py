@@ -23,7 +23,7 @@ class LLMClient:
         ):
         self.timeout = timeout
         self.engine_name = engine_name 
-        self.logger = GlobberLogger("llmclient.log", level=LEVEL.INFO)
+        self.logger = GlobberLogger("fuzzer.log", level=LEVEL.TRACE)
 
         if api_name.lower() == "deepinfra":
             api_key = os.getenv("DEEPINFRA_API_KEY")

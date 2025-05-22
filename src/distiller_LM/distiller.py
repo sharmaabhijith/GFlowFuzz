@@ -35,7 +35,7 @@ class Distiller:
             instruction: Instruction for auto-prompting
         """
         self.folder = output_folder
-        self.logger = GlobberLogger("distiller.log", level=LEVEL.INFO)
+        self.logger = GlobberLogger("fuzzer.log", level=LEVEL.TRACE)
         self.logger.log("Distiller initialized.", LEVEL.INFO)
         self.engine_name = distiller_config.llm_config.engine_name
         self.llm_client = get_LLM_client(

@@ -20,10 +20,10 @@ instructor:
     temperature: 1                  # Sampling temperature for instructions
     messages: []
   template:                         # Describe the context of instruction generation
-    main: "You are a instruction generation tool."
-    desc: "Your task is to generate one short instruction at a time. Each instruction must be description of a specific requirement from the compiler description to be tested. Each instruction must add a new layer of incremental complexity to the existing description of requirements for the generation of C program."
-    note: "DO NOT generate any code. Instructions must be cohesive to guide the generation of single C program." # Add specific restrictions 
-    next: "Generate the next short instruction."  # To guide LLM to generate the next instruction
+    main: "You are a helpful assistant tool for instruction generation."
+    desc: "Your task is to generate an instruction descripting a specific requirement from the compiler description to be tested."
+    note: "IF YOU GENERATE CODE YOU WILL BE FIRED. IF YOU GENERATE MORE THAN ONE REQUIREMENT YOU WILL BE FIRED" # Add specific restrictions 
+    next: "Generate the next instruction."  # To guide LLM to generate the next instruction
   separator: "\n"                 # Separator for instructions
   max_instructions: 10              # Maximum number of instructions in a sequence
   device: "cuda"                    # Use auto device mapping for model

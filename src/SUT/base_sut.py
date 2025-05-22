@@ -23,8 +23,7 @@ class BaseSUT(object):
         self.temperature = sut_config.temperature
         self.max_length = sut_config.max_length
         # loggers
-        log_level_enum = LEVEL[sut_config.log_level.upper()] if sut_config.log_level.upper() in LEVEL.__members__ else LEVEL.INFO
-        self.logger = GlobberLogger("sut.log", level=log_level_enum)
+        self.logger = GlobberLogger("fuzzer.log", level=LEVEL.TRACE)
         self.logger.log("BaseSUT initialized with SUTConfig.", LEVEL.INFO)
         self.prompt_used = None
 

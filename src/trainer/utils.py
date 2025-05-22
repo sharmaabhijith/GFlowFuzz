@@ -1,6 +1,11 @@
 from dataclasses import dataclass
 from typing import Dict, Any
 
+
+def write_to_file(file_name: str, content: str):
+    with open(file_name, "w") as f:
+        f.write(content)
+
 @dataclass
 class FuzzerConfig:
     number_of_iterations: int

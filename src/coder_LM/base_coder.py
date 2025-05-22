@@ -43,7 +43,7 @@ class BaseCoderLocal(BaseCoder):
         self.eos = EOF_STRINGS
         self.max_length = coder_config.max_length
         self.skip_special_tokens = False
-        self.logger = GlobberLogger("coder_local.log", level=LEVEL.INFO)
+        self.logger = GlobberLogger("fuzzer.log", level=LEVEL.TRACE)
         self.logger.log("BaseCoderLocal initialized.", LEVEL.INFO)
 
     def format_prompt(self, prompt: str) -> str:
@@ -113,7 +113,7 @@ class BaseCoderAPI(BaseCoder):
         self.system_message = coder_config.system_message
         self.instruction = coder_config.instruction
         self.llm_config = coder_config.llm_config
-        self.logger = GlobberLogger("coder_api.log", level=LEVEL.INFO)
+        self.logger = GlobberLogger("fuzzer.log", level=LEVEL.INFO)
         self.logger.log("BaseCoderAPI initialized.", LEVEL.INFO)
 
     def format_prompt(self, prompt: str) -> str:

@@ -47,7 +47,7 @@ class Sampler:
         else:
             self.model, self.tokenizer = self.__setup_model_and_optimizer(trainer_config)
         # Initialize logger
-        self.logger = GlobberLogger("sampler.log", level=LEVEL.INFO)
+        self.logger = GlobberLogger("fuzzer.log", level=LEVEL.TRACE)
         self.logger.log("Sampler initialized.", LEVEL.INFO)
         # Initialize instructor
         self.instructor = Instructor(
@@ -143,14 +143,11 @@ class Sampler:
             self.logger.log(f"Error during training step: {e}\n{traceback.format_exc()}", LEVEL.INFO)
             raise
 
-    def summarize_instructions(self, prompt_text: str) -> str:
-        return self.instructor.get_full_text(prompt_text, summarized=True)
-
     def sample_instruction_sequence(
         self,
         initial_prompt: str,
     ) -> Tuple[InstructionSequence, List[float], List[float]]:
-        self.logger.log(f"generate_instruction_sequence called with initial_prompt: {str(initial_prompt)[:200]}", LEVEL.TRACE)
+        self.logger.log(f"generate_instruction_sequence called with initial_prompt:", LEVEL.TRACE)
         start_time = time.time()
         try:
             sequence = InstructionSequence(
@@ -163,12 +160,11 @@ class Sampler:
             log_zs = []
             for idx in range(self.max_instructions):
                 intermediate_prompt = sequence.get_full_text(self.separator)
-                self.logger.log(f"Generating instruction {idx} with prompt: {str(intermediate_prompt)[:200]}", LEVEL.TRACE)
+                self.logger.log(f"Generating instruction {idx} with existing prompt", LEVEL.TRACE)
                 instruction, log_prob, log_z = self.instructor.generate_instruction(intermediate_prompt)
                 sequence.add_instruction(instruction)
                 log_probs.append(log_prob)
                 log_zs.append(log_z)
-                self.logger.log(f"Instruction {idx}: {str(instruction)[:200]}, log_prob: {log_prob.item() if hasattr(log_prob, 'item') else log_prob}, log_z: {log_z.item() if hasattr(log_z, 'item') else log_z}", LEVEL.VERBOSE)
             end_time = time.time()
             final_prompt = sequence.get_full_text(self.separator)[1]["content"]
             final_prompt_summarized = sequence.get_full_text(self.separator, summarized=True)

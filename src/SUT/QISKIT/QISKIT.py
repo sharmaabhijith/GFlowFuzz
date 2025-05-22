@@ -88,8 +88,7 @@ class Qiskit_SUT(BaseSUT):
         super().__init__(sut_config)
 
         # Qiskit_SUT uses its own logger file, but respect the log level from config
-        log_level_enum = LEVEL[sut_config.log_level.upper()] if sut_config.log_level.upper() in LEVEL.__members__ else LEVEL.INFO
-        self.logger = GlobberLogger("qiskit_sut.log", level=log_level_enum)
+        self.logger = GlobberLogger("fuzzer.log", level=LEVEL.TRACE)
         self.logger.log("Qiskit_SUT initialized with SUTConfig.", LEVEL.INFO)
         self.SYSTEM_MESSAGE = "You are a Qiskit Fuzzer"
         self.prompt_used = self._create_prompt_from_config(sut_config)
