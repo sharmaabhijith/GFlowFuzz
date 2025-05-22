@@ -187,19 +187,17 @@ class Fuzzer:
                     ):
                     iter_start = time.time()
                     self.logger.log(f"Fuzzing iteration {self.count}", LEVEL.TRACE)
-                    final_prompt, log_probs, log_zs = self.instructor.sample_instruction_sequence(self.prompt)
+                    final_prompt, final_prompt_summarized, log_probs, log_zs = self.instructor.sample_instruction_sequence(self.prompt)
                     self.logger.log(f"Log_probs: {str(log_probs)[:300]}", LEVEL.VERBOSE)
                     self.logger.log(f"Log_zs: {str(log_zs)[:300]}", LEVEL.VERBOSE)
                     file_name = os.path.join(self.output_folders["instruct_prompts"], f"{self.count}.txt")
                     self.logger.log(f"Writing instructions to file: {file_name}", LEVEL.TRACE)
                     with open(file_name, "w", encoding="utf-8") as f:
                         f.write(final_prompt)
-                    final_prompt = self.instructor.summarize_instructions(final_prompt)
                     file_name = os.path.join(self.output_folders["instruct_prompts"], f"{self.count}_summarized.txt")
                     with open(file_name, "w", encoding="utf-8") as f:
-                        f.write(final_prompt)
-                    final_prompt = self.instructor.summarize_instructions(final_prompt)
-                    fos = self.coder.generate_code(prompt=final_prompt)
+                        f.write(str(final_prompt_summarized))
+                    fos = self.coder.generate_code(prompt=final_prompt_summarized)
                     self.logger.log(f"Generated code samples:", LEVEL.TRACE)
                     for fo in fos:
                         self.logger.log(f"Evaluating code sample:", LEVEL.TRACE)

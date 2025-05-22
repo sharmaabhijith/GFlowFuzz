@@ -171,9 +171,11 @@ class Sampler:
                 self.logger.log(f"Instruction {idx}: {str(instruction)[:200]}, log_prob: {log_prob.item() if hasattr(log_prob, 'item') else log_prob}, log_z: {log_z.item() if hasattr(log_z, 'item') else log_z}", LEVEL.VERBOSE)
             end_time = time.time()
             final_prompt = sequence.get_full_text(self.separator)[1]["content"]
+            final_prompt_summarized = sequence.get_full_text(self.separator, summarized=True)
+            final_prompt_summarized,_,_ = self.instructor.generate_instruction(final_prompt_summarized)
             self.logger.log(f"Instruction sequence generation complete in {end_time - start_time:.2f}s", LEVEL.TRACE)
 
-            return final_prompt, log_probs, log_zs
+            return final_prompt, final_prompt_summarized, log_probs, log_zs
         except Exception as e:
             self.logger.log(f"Error during instruction sequence generation: {e}\n{traceback.format_exc()}", LEVEL.INFO)
             raise

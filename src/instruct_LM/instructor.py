@@ -65,7 +65,11 @@ class InstructionSequence:
                     f"NOTE: {self.template['note']}"
                 ]
             )
-            return separator.join(instruction_lines)
+            content = separator.join(instruction_lines)
+            return [
+                {"role": "system", "content": "You are a helpful assistant that summarizes instructions."},
+                {"role": "user", "content": content}
+            ]
         else:
             instruction_lines.extend(
                 [
@@ -233,6 +237,7 @@ class Instructor:
 
     def generate_instruction(self, prompt_text: str) -> Tuple[str, float, float]:
         if self.api_name != "local":
+            
             return self.__generate_instruction_api(prompt_text)
         else:
             return self.__generate_instruction_local(prompt_text)
