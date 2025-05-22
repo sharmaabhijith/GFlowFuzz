@@ -1,8 +1,0 @@
-(set-logic ALL)
-
-(declare-const f (Fun Int Int))
-(declare-const g (Fun Int Int))
-(declare-const x Int)
-(assert (= (applyf x) x))
-(check-sat)
-(exit)

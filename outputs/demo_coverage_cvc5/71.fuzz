@@ -1,4 +1,0 @@
-(set-logic ALL)
-(set-info :reason-unknown :assumption-violation)
-(check-sat)
-(exit)
