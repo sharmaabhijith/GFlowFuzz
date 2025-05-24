@@ -160,14 +160,12 @@ class C_SUT(BaseSUT):
 
     def validate_individual(self, filename) -> (FResult, str, float):
         fresult, msg = self.validate_compiler(self.target_name, filename)
-        #self.coverage_manager.run_once()
-        #new_cov = self.coverage_manager.update_total()
-        #coverage_diff = new_cov - self.prev_coverage
+        self.coverage_manager.run_once()
+        new_cov = self.coverage_manager.update_total()
+        coverage_diff = new_cov - self.prev_coverage
         bug = 1 if fresult in (FResult.FAILURE, FResult.ERROR) else 0
-        #reward = coverage_diff + self.lambda_ * new_cov + self.beta1_ * bug
-        #self.prev_coverage = new_cov
-        new_cov = 0
-        reward = self.beta1_ * bug
+        reward = coverage_diff + self.lambda_ * new_cov + self.beta1_ * bug
+        self.prev_coverage = new_cov
         if fresult == FResult.SAFE:
             return FResult.SAFE, f"its safe\nCoverage: {new_cov}", reward
         elif fresult == FResult.ERROR:

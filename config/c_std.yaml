@@ -14,6 +14,7 @@ distiller:
 
 instructor:
   api_name: "deepinfra"
+  fine_tuning: false
   llm_config: 
     engine_name: "meta-llama/Meta-Llama-3.1-405B-Instruct"  # Model name for the instructor
     max_tokens: 256                       # Maximum length of each instruction
@@ -63,8 +64,8 @@ SUT:
 
 fuzzer:
   # SUT block removed from here as it's now top-level
-  number_of_iterations: 10
-  total_time: 1
+  number_of_iterations: 100000
+  total_time: 24
   resume: false
   otf: false
   log_level: 1                      # Logging level for the Fuzzer component (maps to INFO, TRACE, VERBOSE int enum)

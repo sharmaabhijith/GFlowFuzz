@@ -14,7 +14,14 @@ from logger import LEVEL
 
 def make_ouput_dirs(
     folder_path: str, 
-    folder_components: list[str] = ["logs", "distilled_prompts", "fuzz_code", "instruct_prompts", "checkpoints"]
+    folder_components: list[str] = [
+        "logs", 
+        "distilled_prompts", 
+        "fuzz_code", 
+        "instruct_prompts", 
+        "checkpoints", 
+        "bugs"
+        ]
     ):
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     folder_path_dict = {}
@@ -50,6 +57,7 @@ def load_configurations(main_config_path: str):
     )
     configs["instructor_config"] = InstructorConfig(
         api_name=main_config["instructor"]["api_name"],
+        fine_tuning=main_config["instructor"]["fine_tuning"],
         llm_config=LLMConfig(**main_config["instructor"]["llm_config"]),
         template=InstructionTemplateConfig(**main_config["instructor"]["template"]),
         separator=main_config["instructor"]["separator"],

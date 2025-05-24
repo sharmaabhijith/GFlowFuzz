@@ -19,7 +19,7 @@ from rich.progress import (
     TextColumn,
     TimeElapsedColumn,
 )
-
+from SUT.base_sut import FResult
 from distiller_LM import Distiller, DistillerConfig
 from instruct_LM import Sampler, Instructor, InstructorConfig, InstructionBuffer
 from coder_LM import Coder, CoderConfig
@@ -151,6 +151,7 @@ class Fuzzer:
             self.initial_prompt = self.distiller.generate_prompt(message)
             self.prompt = self.initial_prompt
             self.start_time = time.time()
+            Bug_count = 0
             with Progress(
                 TextColumn("Fuzzing • [progress.percentage]{task.percentage:>3.0f}%"),
                 BarColumn(),
@@ -186,10 +187,18 @@ class Fuzzer:
                         count = self.count,
                         otf = self.otf,
                     )
+                    if f_result == FResult.ERROR:
+                        write_to_file(os.path.join(
+                            self.output_folders["bugs"], f"{self.count}.txt"), 
+                            [final_prompt, fo]
+                        )
+                        Bug_count += 1
+                    # self.instructor.update_strategy(f_result, reward)
                     iter_end = time.time()
                     self.logger.log(f"Iteration {self.count} duration: {iter_end - iter_start:.2f}s", LEVEL.TRACE)
                     self.count += 1
             end_time = time.time()
+            self.logger.log(f"Bug count: {Bug_count}", LEVEL.INFO)
             self.logger.log(f"Fuzzer training completed in {end_time - start_time:.2f}s.", LEVEL.INFO)
         except Exception as e:
             self.logger.log(f"Error during training: {e}\n{traceback.format_exc()}", LEVEL.INFO)

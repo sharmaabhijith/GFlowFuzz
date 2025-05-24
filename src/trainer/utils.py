@@ -1,10 +1,15 @@
 from dataclasses import dataclass
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 
-def write_to_file(file_name: str, content: str):
-    with open(file_name, "w") as f:
-        f.write(content)
+def write_to_file(file_name: str, content: str | List[str]):
+    if isinstance(content, str):
+        with open(file_name, "w") as f:
+            f.write(content)
+    elif isinstance(content, list):
+        for c in content:
+            with open(file_name, "w") as f:
+                f.write(c)
 
 @dataclass
 class FuzzerConfig:
