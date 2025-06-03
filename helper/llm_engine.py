@@ -12,14 +12,14 @@ import torch
 from typing import Optional, Dict, Any
 
 from datasets import load_from_disk
-from peft import LoraConfig, get_peft_model, PeftModel
+from peft import LoraConfig, get_peft_model, PeftModel, prepare_model_for_kbit_training
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     BitsAndBytesConfig,
     DataCollatorForLanguageModeling,
     TrainingArguments,
-    Trainer,
+    Trainer
 )
 
 
@@ -58,11 +58,13 @@ class LLMEngine:
         
         # LoRA configuration
         self.lora_config = LoraConfig(
-            r=64,
-            lora_alpha=128,
-            target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
-                          "gate_proj", "up_proj", "down_proj"],
-            lora_dropout=0.01,
+            r=32,
+            lora_alpha=64,
+            target_modules=[
+                "q_proj", "k_proj", "v_proj", "o_proj", 
+                "gate_proj", "up_proj", "down_proj"
+            ],
+            lora_dropout=0.05,
             bias="none",
             task_type="CAUSAL_LM",
         )
@@ -86,12 +88,17 @@ class LLMEngine:
                 quantization_config=self._get_bnb_config(),
                 torch_dtype=torch.bfloat16,
                 device_map="auto",
+                trust_remote_code=True
             )
+            # Disable caching to optimize for fine-tuning
+            self.model.config.use_cache = False
+            self.model.config.pretraining_tp = 1
         else:
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name,
                 torch_dtype=torch.bfloat16,
                 device_map="auto",
+                trust_remote_code=True
             )
         
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, use_fast=True)
@@ -159,7 +166,7 @@ class LLMEngine:
         tokens = self.tokenizer(
             text,
             truncation=True,
-            max_length=2048,
+            max_length=512,
             padding="max_length",
         )
         tokens["labels"] = tokens["input_ids"].copy()
@@ -192,12 +199,14 @@ class LLMEngine:
         
         # Load base model
         self._load_base_model(for_training=True)
+
+        # 2. Prepare it for training (adds fp32 inputs, gradient checkpointing, etc.)
+        self.model = prepare_model_for_kbit_training(self.model)
         
         # Attach LoRA
         print("Attaching LoRA adapter...")
         self.model = get_peft_model(self.model, self.lora_config)
         self.model.print_trainable_parameters()
-        
         # Prepare datasets
         split_dataset = load_from_disk(data_path)
         train_ds = split_dataset["train"].map(
