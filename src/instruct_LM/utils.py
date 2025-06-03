@@ -27,6 +27,7 @@ class InstructionTemplateConfig:
 @dataclass
 class InstructorConfig:
     api_name: str
+    fine_tuning: bool
     llm_config: LLMConfig
     template: InstructionTemplateConfig
     separator: str

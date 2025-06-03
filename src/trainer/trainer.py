@@ -9,6 +9,7 @@ import math
 import time
 import torch
 import traceback
+import pandas as pd
 
 from rich.traceback import install
 install()
@@ -26,7 +27,7 @@ from coder_LM import Coder, CoderConfig
 from SUT import make_SUT, SUTConfig
 from oracle import Inspector
 from logger import LEVEL
-from trainer.utils import TrainerConfig, FuzzerConfig, write_to_file
+from trainer.utils import TrainerConfig, FuzzerConfig, write_to_file, CompilationRecorder
 from trainer.checkpointer import CheckpointManager
 from logger import GlobberLogger, LEVEL
 
@@ -85,7 +86,7 @@ class Fuzzer:
         # Initialize the fuzzing variables
         self.count = 0
         self.start_time = 0
-        self.logger = GlobberLogger("fuzzer.log", level=fuzzer_config.log_level)
+        self.logger = GlobberLogger("fuzzer.log")
         self.logger.log("Fuzzer initialized.", LEVEL.INFO)
         self.logger.log(f"SUTConfig: {SUT_config}", LEVEL.TRACE)
         self.logger.log(f"FuzzerConfig: {fuzzer_config}", LEVEL.TRACE)
@@ -94,6 +95,11 @@ class Fuzzer:
         self.logger.log(f"DistillerConfig: {distiller_config}", LEVEL.TRACE)
         self.logger.log(f"InstructorConfig: {instructor_config}", LEVEL.TRACE)
         
+        # Initialize compilation recorder
+        self.compilation_recorder = CompilationRecorder(
+            output_folder=self.output_folders["logs"],
+            logger=self.logger
+        )
 
     def __get_resume_count(self) -> int:
         """
@@ -172,16 +178,16 @@ class Fuzzer:
                     time.time() - self.start_time < self.total_time * 3600
                     ):
                     iter_start = time.time()
-                    self.logger.log(f"Fuzzing iteration {self.count}", LEVEL.TRACE)
+                    self.logger.log(f"Fuzzing iteration {self.count}", LEVEL.INFO)
                     final_prompt, log_probs, log_zs = self.instructor.sample_instruction_sequence(self.prompt)
                     write_to_file(os.path.join(
                         self.output_folders["instruct_prompts"], f"{self.count}.txt"), 
                         final_prompt
                     )
-                    self.logger.log(f"Generated code samples:", LEVEL.TRACE)
+                    self.logger.log(f"Generated code samples:", LEVEL.INFO)
                     fo = self.coder.generate_code(prompt=final_prompt)
-                    self.logger.log(f"Evaluating code sample:", LEVEL.TRACE)
-                    f_result, sut_message, reward = self.oracle.inspect(
+                    self.logger.log(f"Evaluating code sample:", LEVEL.INFO)
+                    f_result, error, coverage, reward = self.oracle.inspect(
                         fo = fo,
                         output_folder = self.output_folders["fuzz_code"],
                         count = self.count,
@@ -193,19 +199,24 @@ class Fuzzer:
                             [final_prompt, fo]
                         )
                         Bug_count += 1
-                    # self.instructor.update_strategy(f_result, reward)
+                    self.compilation_recorder.update_record(
+                        iteration=self.count,
+                        error=error,
+                        coverage=coverage,
+                        reward=reward
+                    )
+                    self.instructor.update_strategy(f_result, reward)
                     iter_end = time.time()
-                    self.logger.log(f"Iteration {self.count} duration: {iter_end - iter_start:.2f}s", LEVEL.TRACE)
+                    self.logger.log(f"Iteration {self.count} duration: {iter_end - iter_start:.2f}s", LEVEL.INFO)
+                    self.logger.log(f"Compilation output type: {str(error)}", LEVEL.INFO)
+                    self.logger.log(f"Updated Bug count: {Bug_count}", LEVEL.INFO)
                     self.count += 1
             end_time = time.time()
-            self.logger.log(f"Bug count: {Bug_count}", LEVEL.INFO)
             self.logger.log(f"Fuzzer training completed in {end_time - start_time:.2f}s.", LEVEL.INFO)
         except Exception as e:
             self.logger.log(f"Error during training: {e}\n{traceback.format_exc()}", LEVEL.INFO)
             raise
 
-
-    
     def evaluate_all(self) -> None:
         """
         Evaluate all generated outputs against the oracle.

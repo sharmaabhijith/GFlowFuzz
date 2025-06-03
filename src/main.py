@@ -35,6 +35,7 @@ def main(target_name: str):
     # Load configurations
     configs = load_configurations(main_config)
     configs["target_name"] = target_name  # make target available to your Fuzzer
+    print("TARGET NAME: ", target_name)
 
     # Set up logs
     exp_name = configs["exp_name"]

@@ -147,29 +147,10 @@ class Sampler:
 
     def update_strategy(self, f_result: FResult, reward: float) -> str:
         feedback = ""
-        coverage_guidance = ""
         bug_guidance = ""
-        
-        # Extract reward components from the message
-        if hasattr(self, 'f_result') and self.f_result:
-            msg = self.f_result.split('\n')
-            for line in msg:
-                if 'Coverage:' in line:
-                    try:
-                        current_coverage = float(line.split(':')[1].strip())
-                        if hasattr(self, 'prev_coverage'):
-                            coverage_diff = current_coverage - self.prev_coverage
-                            if coverage_diff > 0:
-                                coverage_guidance = f"Coverage improved by {coverage_diff:.2f}%. Continue exploring similar paths."
-                            elif coverage_diff < 0:
-                                coverage_guidance = f"Coverage decreased by {abs(coverage_diff):.2f}%. Try different execution paths."
-                            else:
-                                coverage_guidance = "Coverage remained same. Focus on unexplored code paths."
-                    except:
-                        pass
 
         if f_result == FResult.SAFE:
-            bug_guidance = "No bugs found. Focus on edge cases and boundary conditions."
+            bug_guidance = "Focus on edge cases and boundary conditions for finding bugs in C compilers."
         elif f_result == FResult.FAILURE:
             bug_guidance = "Found a failure! Continue exploring similar patterns with variations."
         elif f_result == FResult.TIMED_OUT:
@@ -178,24 +159,10 @@ class Sampler:
             bug_guidance = f"Found an error! Reward: {reward:.2f}. Continue exploring similar patterns."
         elif f_result == FResult.LLM_WEAKNESS:
             bug_guidance = "Instructions need improvement. Focus on being more specific."
-
-        # Combine feedback components
-        if coverage_guidance and bug_guidance:
-            feedback = f"{coverage_guidance}\n{bug_guidance}"
-        else:
-            feedback = coverage_guidance or bug_guidance
-
-        # Add reward-based strategy guidance
-        if reward > 0:
-            strategy = "Continue current approach as it's yielding positive results."
-        else:
-            strategy = "Consider changing the testing strategy to improve results."
-
-        # Append comprehensive feedback to existing template while preserving original content
-        if feedback:
-            self.template["note"] = f"{self.template['note']}\n\nFeedback:\n{feedback}\nStrategy: {strategy}"
-            self.template["desc"] = f"{self.template['desc']}\n\nAdditional focus:\n{feedback}\nStrategy: {strategy}"
-            self.template["main"] = f"{self.template['main']}\n\nContext:\n{feedback}\nStrategy: {strategy}"
+        feedback = bug_guidance
+        self.template["note"] = f"{self.template['note']}\n\nFeedback:\n{feedback}"
+        self.template["desc"] = f"{self.template['desc']}\n\nAdditional focus:\n{feedback}"
+        self.template["main"] = f"{self.template['main']}\n\nContext:\n{feedback}"
         
         return self.template["main"]
     

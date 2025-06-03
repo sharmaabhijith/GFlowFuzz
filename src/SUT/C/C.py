@@ -158,21 +158,23 @@ class C_SUT(BaseSUT):
 
         return FResult.SAFE, "its safe"
 
-    def validate_individual(self, filename) -> (FResult, str, float):
+    def validate_individual(self, filename) -> (FResult, str, int, float):
         fresult, msg = self.validate_compiler(self.target_name, filename)
-        self.coverage_manager.run_once()
-        new_cov = self.coverage_manager.update_total()
-        coverage_diff = new_cov - self.prev_coverage
-        bug = 1 if fresult in (FResult.FAILURE, FResult.ERROR) else 0
-        reward = coverage_diff + self.lambda_ * new_cov + self.beta1_ * bug
-        self.prev_coverage = new_cov
+        # self.coverage_manager.run_once()
+        # new_cov = self.coverage_manager.update_total()
+        # coverage_diff = new_cov - self.prev_coverage
+        # bug = 1 if fresult in (FResult.FAILURE, FResult.ERROR) else 0
+        # reward = coverage_diff + self.lambda_ * new_cov + self.beta1_ * bug
+        # self.prev_coverage = new_cov
+        reward = 0
+        new_cov = 0
         if fresult == FResult.SAFE:
-            return FResult.SAFE, f"its safe\nCoverage: {new_cov}", reward
+            return FResult.SAFE, "SAFE", new_cov, reward
         elif fresult == FResult.ERROR:
-            return FResult.ERROR, f"{msg}\nCoverage: {new_cov}", reward
+            return FResult.ERROR, "ERROR", new_cov, reward
         elif fresult == FResult.TIMED_OUT:
-            return FResult.ERROR, f"timed out\nCoverage: {new_cov}", reward
+            return FResult.ERROR, "TIMEDOUT", new_cov, reward
         elif fresult == FResult.FAILURE:
-            return FResult.FAILURE, f"{msg}\nCoverage: {new_cov}", reward
+            return FResult.FAILURE, "FAILURE", new_cov, reward
         else:
-            return (FResult.TIMED_OUT, f"Coverage: {new_cov}", reward)
+            return FResult.TIMED_OUT, "NAN", new_cov, reward

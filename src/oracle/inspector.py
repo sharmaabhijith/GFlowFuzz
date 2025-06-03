@@ -25,20 +25,17 @@ class Inspector:
             LEVEL.TRACE
         )
         start_time = time.time()
-        file_name = os.path.join(output_folder, f"{count}.fuzz")
+        file_name = os.path.join(output_folder, f"{count}.c")
         with open(file_name, "w", encoding="utf-8") as f:
             f.write(fo)
         try:
-            if not otf:
-                self.logger.log("OTF is False, skipping inspection.", LEVEL.TRACE)
-                return None, None, None
             self.logger.log(f"Inspecting file: {file_name}", LEVEL.TRACE)
-            f_result, message, reward = self.sut.validate_individual(file_name)
+            f_result, error, message, reward = self.sut.validate_individual(file_name)
             self.logger.log(f"Validation result: {f_result}, message: {str(message)[:200]}, reward: {reward}", LEVEL.VERBOSE)
             self.sut.parse_validation_message(f_result, message, file_name)
             end_time = time.time()
             self.logger.log(f"Inspection result: {f_result}, reward: {reward} (duration: {end_time - start_time:.2f}s)", LEVEL.VERBOSE)
-            return f_result, fo, reward
+            return f_result, error, message, reward
         except Exception as e:
             self.logger.log(f"Error during inspection: {e}\n{traceback.format_exc()}", LEVEL.INFO)
             raise

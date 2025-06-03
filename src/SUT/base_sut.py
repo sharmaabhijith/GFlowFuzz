@@ -117,28 +117,28 @@ class BaseSUT(object):
         raise NotImplementedError
 
     # validation
-    def validate_individual(self, filename) -> tuple[FResult, str]:
+    def validate_individual(self, filename) -> tuple[FResult, str, int, float]:
         raise NotImplementedError
 
     def parse_validation_message(self, f_result, message, file_name):
         self.logger.log(f"Validating {file_name} ...", LEVEL.TRACE)
-        self.logger.log(f"Validation message: {str(message)[:200]}", LEVEL.VERBOSE)
+        self.logger.log(f"Validation message: {str(message)[:200]}", LEVEL.TRACE)
         if f_result == FResult.SAFE:
-            self.logger.log(f"{file_name} is safe", LEVEL.VERBOSE)
+            self.logger.log(f"{file_name} is safe", LEVEL.TRACE)
         elif f_result == FResult.FAILURE:
-            self.logger.log(f"{file_name} failed validation with error message: {message}", LEVEL.VERBOSE)
+            self.logger.log(f"{file_name} failed validation with error message: {message}", LEVEL.TRACE)
         elif f_result == FResult.ERROR:
-            self.logger.log(f"{file_name} has potential error!\nerror message:\n{message}", LEVEL.VERBOSE)
-            self.logger.log(f"{file_name} has potential error!", LEVEL.INFO)
+            self.logger.log(f"{file_name} has potential error!\nerror message:\n{message}", LEVEL.TRACE)
+            self.logger.log(f"{file_name} has potential error!", LEVEL.TRACE)
         elif f_result == FResult.TIMED_OUT:
-            self.logger.log(f"{file_name} timed out", LEVEL.VERBOSE)
+            self.logger.log(f"{file_name} timed out", LEVEL.TRACE)
 
     def validate_all(self):
         self.logger.log(f"validate_all called for folder: {self.folder}", LEVEL.TRACE)
         start_time = time.time()
         try:
             for fuzz_output in track(
-                glob.glob(self.folder + "/*.fuzz"),
+                glob.glob(self.folder + "/*.c"),
                 description="Validating",
             ):
                 self.logger.log(f"Validating fuzz output: {fuzz_output}", LEVEL.TRACE)

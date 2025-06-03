@@ -18,7 +18,7 @@ instructor:
   llm_config: 
     engine_name: "meta-llama/Meta-Llama-3.1-405B-Instruct"  # Model name for the instructor
     max_tokens: 256                       # Maximum length of each instruction
-    temperature: 1                  # Sampling temperature for instructions
+    temperature: 0.7                  # Sampling temperature for instructions
     messages: []
   template:                         # Describe the context of instruction generation
     main: "You are a helpful assistant tool for instruction generation."
@@ -31,13 +31,13 @@ instructor:
 
 coder:
   api_name: "deepinfra"
-  system_message: "You are an expert C coding tool."
-  instruction: "Please create a C program to test the given instructions. ONLY GENERATE C CODE ELSE YOU WILL BE FIRED."
+  system_message: "You are an expert C coding tool. MAKE SURE THE CODE COMPILES ON GCC ELSE YOU WILL BE FIRED"
+  instruction: "Please create a C program file to test the given instructions. MAKE SURE THE CODE COMPILES ON GCC ELSE YOU WILL BE FIRED. ONLY GENERATE C CODE AND NO OTHER TEXT ELSE YOU WILL BE FIRED. DO NOT INCLUDE ```c in the code."
   device: "cuda"
   llm_config: 
-    engine_name: "Qwen/Qwen2.5-Coder-32B-Instruct"
+    engine_name: "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
     max_tokens: 5000
-    temperature: 0.1
+    temperature: 0.7
     messages: []
 
 # SUT configuration moved to its own top-level section for clarity
@@ -55,7 +55,7 @@ SUT:
   batch_size: 1                   # Batch size for code generation during SUT validation steps
   temperature: 0.8                # Temperature for code generation during SUT validation steps
   max_length: 1024                # Max length for code generation during SUT validation steps
-  log_level: "VERBOSE"               # Logging level for SUT specific logs (INFO, TRACE, VERBOSE)
+  log_level: "INFO"               # Logging level for SUT specific logs (INFO, TRACE, VERBOSE)
   template: "fuzzing_with_config_file" # Template name for prompt creation strategy
   lambda_hyper: 0.1               # Hyperparameter lambda for reward calculation
   beta1_hyper: 1.0                # Hyperparameter beta1 for reward calculation
@@ -64,8 +64,8 @@ SUT:
 
 fuzzer:
   # SUT block removed from here as it's now top-level
-  number_of_iterations: 100000
-  total_time: 24
+  number_of_iterations: 1000
+  total_time: 12
   resume: false
   otf: false
   log_level: 1                      # Logging level for the Fuzzer component (maps to INFO, TRACE, VERBOSE int enum)

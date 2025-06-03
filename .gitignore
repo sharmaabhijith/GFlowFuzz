@@ -11,3 +11,8 @@ __pycache__/
 .z3-trace
 
 .env
+
+coder-lora
+coder-lora-merged
+instruct-lora
+instruct-lora-merged
