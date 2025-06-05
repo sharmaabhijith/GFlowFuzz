@@ -12,7 +12,6 @@ __pycache__/
 
 .env
 
-coder-lora
-coder-lora-merged
-instruct-lora
-instruct-lora-merged
+Llama*/
+
+*.arrow
