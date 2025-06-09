@@ -8,9 +8,7 @@ python3 llm_engine.py --mode train --model_name deepseek-ai/deepseek-coder-6.7b-
 import os
 import json
 import torch
-import argparse
 from typing import Optional, Dict, Any
-import multiprocess
 
 from datasets import load_from_disk
 from peft import LoraConfig, get_peft_model, PeftModel, prepare_model_for_kbit_training
@@ -246,9 +244,9 @@ class LLMEngine:
         # Create merged model
         self._create_merged_model()
     
-    def generate(
+    def infer(
         self,
-        prompt: str,
+        raw_prompt: str,
         max_new_tokens: int = 2048,
         temperature: float = 0.5,
         top_p: float = 0.9
@@ -265,6 +263,13 @@ class LLMEngine:
         Returns:
             Generated response string
         """
+        prompt = prompt_wrapper(
+            model_type=self.model_type,
+            model_name=self.model_name,
+            prompt=raw_prompt,
+            eos_token=self.tokenizer.eos_token,
+        )
+
         if self.model is None or self.tokenizer is None:
             raise ValueError("Model not loaded. Call load_for_inference() first.")
         
@@ -286,68 +291,31 @@ class LLMEngine:
         
         # Decode only the new tokens (excluding input prompt)
         input_length = inputs["input_ids"].shape[1]
-        generated_tokens = outputs[0]
+        generated_tokens = outputs[0][input_length:]
         response = self.tokenizer.decode(generated_tokens, skip_special_tokens=True)
         
         return response
 
+    def interactive_loop(self) -> None:
+        """Start an interactive REPL for inference."""
 
-
-if __name__ == "__main__":
+        print("\n[Interactive mode]  Type your raw prompt and press <enter>.  Type 'exit' or 'quit' to leave.\n")
+        try:
+            while True:
+                user_input = input("» ").strip()
+                if user_input.lower() in {"exit", "quit"}:
+                    break
+                if not user_input:
+                    continue
+                try:
+                    print("[Generating…]")
+                    result = self.infer(user_input)
+                    print("—" * 40)
+                    print(result)
+                    print("—" * 40)
+                except Exception as err:  # noqa: BLE001
+                    print(f"[Error] {err}")
+        except (KeyboardInterrupt, EOFError):
+            pass
+        print("[Interactive mode terminated]\n")
     
-    multiprocess.set_start_method('spawn', force=True)
-    
-    parser = argparse.ArgumentParser(description="LLM Engine")
-    parser.add_argument("--mode", choices=["train", "inference"], required=True)
-    parser.add_argument("--model_name", required=True)
-    parser.add_argument("--model_type", choices=["coder", "instruct"], default="instruct")
-    parser.add_argument("--model_path", help="Path to model to save/load")
-    parser.add_argument("--data_path", default="datasets/arrow/instruct")
-    parser.add_argument("--use_merged", action="store_true")
-    
-    args = parser.parse_args()
-
-    manager = LLMEngine(
-        mode = args.mode,
-        model_name = args.model_name,
-        model_type = args.model_type,
-        model_path = args.model_path,
-        use_merged = args.use_merged,
-        additional_special_tokens = ["<｜System｜>", "<｜User｜>", "<｜Assistant｜>"]
-    )
-    
-    if args.mode == "train":
-        # manager.train(
-        #     data_path = args.data_path,
-        #     batch_size = 4,
-        #     accumulation_steps = 8,
-        #     epochs = 5
-        # )
-        manager._create_merged_model()
-    else:
-        # Instruct example
-        # raw_prompt = (
-        #     "API: torch.nn\n"
-        #     "Bug Description: Fails on large input tensors with sparse gradients\n"
-        #     "Instructions so far: \n"
-        #     "1. Invoke `torch.nn.functional.conv2d` exactly as in the full script; this call is expected to surface the issue described: fails on large input tensors with sparse gradients\n"
-        #     "2. If training is involved, compute loss and call `backward()` to trigger autograd logic where the fault occurs."
-        #     "\n===\nNext Instruction:"
-        # )
-        # # Coder example
-        raw_prompt = (
-            "API: torch.nn\n"
-            "Bug Description: Fails on large input tensors with sparse gradients\n"
-            "Instructions: \n"
-            "1. Invoke `torch.nn.functional.conv2d` exactly as in the full script; this call is expected to surface the issue described: fails on large input tensors with sparse gradients\n"
-            "2. If training is involved, compute loss and call `backward()` to trigger autograd logic where the fault occurs."
-            "\n===\nCode: "
-        )
-        prompt = prompt_wrapper(
-            model_type = args.model_type, 
-            model_name = args.model_name, 
-            prompt = raw_prompt, 
-            eos_token = manager.tokenizer.eos_token
-        )
-        response = manager.generate(prompt)
-        print(response)
