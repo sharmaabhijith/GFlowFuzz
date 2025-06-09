@@ -1,3 +1,5 @@
+from typing import Optional
+
 def prompt_wrapper(
     model_type: str,
     model_name: str,
@@ -32,8 +34,8 @@ def prompt_wrapper(
             f"<｜Assistant｜>\n"
         )
         if completion:
-            return base_prompt + f"{completion}\n{tokenizer.eos_token}"
-        return {"text": base_prompt}
+            return base_prompt + f"{completion}\n{eos_token}"
+        return base_prompt
 
     elif any(m in family for m in {"llama3", "llama-3", "llama_3"}):
         base_prompt =  (

@@ -22,7 +22,7 @@ from transformers import (
     TrainingArguments,
     Trainer
 )
-from trl import DataCollatorForCompletionOnlyLM as CollatorForCompletion
+from trl import DataCollatorForCompletionOnlyLM
 
 from utils import prompt_wrapper
 
@@ -39,28 +39,19 @@ class LLMEngine:
         model_type: str,
         model_path: Optional[str] = None,
         use_merged: bool = False,
-        use_4bit: bool = True
+        use_4bit: bool = True,
+        additional_special_tokens: Optional[list] = [],
     ):
-        """
-        Initialize the LLM Manager.
-        
-        Args:
-            model_name: Base model name from HuggingFace
-            model_type: Type of model for training
-            model_path: Path to trained model/adapter (for inference)
-            use_merged: Whether to use merged model for inference
-            use_4bit: Whether to use 4-bit quantization
-        """
         self.mode = mode
         self.model_name = model_name
         self.model_type = model_type
         self.model_path = model_path
         self.use_merged = use_merged
         self.use_4bit = use_4bit
-
-        self._load_model()
-
-        # LoRA configuration
+        self.special_tokens_dict = {
+            'additional_special_tokens': additional_special_tokens
+        }
+        self._load_language_model()
         self.lora_config = LoraConfig(
             r=64,
             lora_alpha=128,
@@ -72,14 +63,16 @@ class LLMEngine:
             bias="none",
             task_type="CAUSAL_LM",
         )
-    
-    def _load_model(self) -> None:
-        """Load the base model with appropriate configuration."""
 
+    
+    def _load_language_model(self) -> None:
         if self.mode == "train":
             print(f"Loading base model: {self.model_name}")
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, use_fast=True)
         elif self.mode == "inference":
             print(f"Loading fine tuned model from {self.model_path} | Merged: {self.use_merged}")
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_path, use_fast=True)
+
         if self.use_4bit:
             bnb_config = BitsAndBytesConfig(
                 load_in_4bit=True,
@@ -95,20 +88,21 @@ class LLMEngine:
                 attn_implementation = "flash_attention_2"
             )
         else:
-            model = AutoModelForCausalLM.from_pretrained(
+            base_model = AutoModelForCausalLM.from_pretrained(
                 self.model_name,
                 torch_dtype=torch.bfloat16,
                 device_map="auto",
                 attn_implementation = "flash_attention_2"
             )
-        if self.use_merged:
+
+        self.tokenizer.pad_token = self.tokenizer.eos_token
+        self.tokenizer.add_special_tokens(self.special_tokens_dict)
+        base_model.resize_token_embeddings(len(self.tokenizer))
+
+        if self.use_merged or self.mode == "train":
             self.model = base_model
         else:
             self.model = PeftModel.from_pretrained(base_model, self.model_path)
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, use_fast=True)
-        self.tokenizer.pad_token = self.tokenizer.eos_token
-        print(tokenizer.special_tokens_map)
-        print(tokenizer.additional_special_tokens)
     
     
     def _tokenize_function(self, examples):
@@ -124,7 +118,7 @@ class LLMEngine:
         tokens = self.tokenizer(
             text,
             truncation=True,
-            max_length=1024,
+            max_length=2048,
             padding="max_length",
         )
         tokens["labels"] = tokens["input_ids"].copy()
@@ -145,7 +139,9 @@ class LLMEngine:
             self.model_name,
             torch_dtype=torch.bfloat16,
             device_map="auto",
+            attn_implementation = "flash_attention_2"
         )
+        base_model.resize_token_embeddings(len(self.tokenizer))
         
         # Load and merge the trained LoRA adapter
         model_with_lora = PeftModel.from_pretrained(base_model, self.model_path)
@@ -208,7 +204,7 @@ class LLMEngine:
         )
         if self.model_type=="coder":
             collator = DataCollatorForCompletionOnlyLM(
-                tokenizer=self.tokenizer, response_template="<|assistant|>\n"
+                tokenizer=self.tokenizer, response_template="<｜Assistant｜>\n"
             )
         else:
             collator = DataCollatorForLanguageModeling(self.tokenizer, mlm=False)
@@ -253,8 +249,8 @@ class LLMEngine:
     def generate(
         self,
         prompt: str,
-        max_new_tokens: int = 512,
-        temperature: float = 0.1,
+        max_new_tokens: int = 2048,
+        temperature: float = 0.5,
         top_p: float = 0.9
     ) -> str:
         """
@@ -312,35 +308,41 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     manager = LLMEngine(
-        model_name=args.model_name,
-        model_type=args.model_type,
-        model_path=args.model_path,
-        use_merged=args.use_merged
+        mode = args.mode,
+        model_name = args.model_name,
+        model_type = args.model_type,
+        model_path = args.model_path,
+        use_merged = args.use_merged,
+        additional_special_tokens = ["<｜System｜>", "<｜User｜>", "<｜Assistant｜>"]
     )
     
     if args.mode == "train":
-        manager.train(
-            data_path=args.data_path,
-            batch_size=2,
-            accumulation_steps=8,
-        )
+        # manager.train(
+        #     data_path = args.data_path,
+        #     batch_size = 4,
+        #     accumulation_steps = 8,
+        #     epochs = 5
+        # )
+        manager._create_merged_model()
     else:
         # Instruct example
+        # raw_prompt = (
+        #     "API: torch.nn\n"
+        #     "Bug Description: Fails on large input tensors with sparse gradients\n"
+        #     "Instructions so far: \n"
+        #     "1. Invoke `torch.nn.functional.conv2d` exactly as in the full script; this call is expected to surface the issue described: fails on large input tensors with sparse gradients\n"
+        #     "2. If training is involved, compute loss and call `backward()` to trigger autograd logic where the fault occurs."
+        #     "\n===\nNext Instruction:"
+        # )
+        # # Coder example
         raw_prompt = (
             "API: torch.nn\n"
             "Bug Description: Fails on large input tensors with sparse gradients\n"
-            "Instructions so far: \n"
+            "Instructions: \n"
             "1. Invoke `torch.nn.functional.conv2d` exactly as in the full script; this call is expected to surface the issue described: fails on large input tensors with sparse gradients\n"
             "2. If training is involved, compute loss and call `backward()` to trigger autograd logic where the fault occurs."
-            "\n===\nNext Instruction:"
+            "\n===\nCode: "
         )
-        # # Coder example
-        # prompt = (
-        #     "API: torch.nn\n"
-        #     "Bug Description: Fails on large input tensors with sparse gradients\n"
-        #     "Instruction: \n"
-        #     "Code: "
-        # )
         prompt = prompt_wrapper(
             model_type = args.model_type, 
             model_name = args.model_name, 
