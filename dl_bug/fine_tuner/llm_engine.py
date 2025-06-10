@@ -5,10 +5,8 @@ Usage examples:
 python3 llm_engine.py --mode train --model_name deepseek-ai/deepseek-coder-6.7b-instruct --model_type coder --model_path DS_Coder --data_path datasets/arrow/coder
 """
 
-import os
-import json
 import torch
-from typing import Optional, Dict, Any
+from typing import Optional
 
 from datasets import load_from_disk
 from peft import LoraConfig, get_peft_model, PeftModel, prepare_model_for_kbit_training
@@ -247,7 +245,7 @@ class LLMEngine:
     def infer(
         self,
         raw_prompt: str,
-        max_new_tokens: int = 2048,
+        max_new_tokens: int = 512,
         temperature: float = 0.5,
         top_p: float = 0.9
     ) -> str:
@@ -291,7 +289,7 @@ class LLMEngine:
         
         # Decode only the new tokens (excluding input prompt)
         input_length = inputs["input_ids"].shape[1]
-        generated_tokens = outputs[0][input_length:]
+        generated_tokens = outputs[0]
         response = self.tokenizer.decode(generated_tokens, skip_special_tokens=True)
         
         return response

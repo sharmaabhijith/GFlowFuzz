@@ -1,11 +1,8 @@
 import os
-import json
-import torch
 import argparse
-from typing import Optional, Dict, Any
 import multiprocess
 
-from llm_engine import LLMEngine
+from dl_bug.fine_tuner.llm_engine import LLMEngine
 
 multiprocess.set_start_method("spawn", force=True)
 
@@ -16,7 +13,6 @@ parser.add_argument("--model_type", choices=["coder", "instruct"], default="inst
 parser.add_argument("--model_path", help="Directory to save / load adapter or merged model")
 parser.add_argument("--data_path", default="datasets/arrow/instruct")
 parser.add_argument("-M", "--use_merged", action="store_true")
-parser.add_argument("-I", "--interactive", action="store_true", help="Launch REPL in inference mode")
 parser.add_argument("--prompt_file", default="test_prompt.txt", help="Path to file containing raw prompt")
 
 args = parser.parse_args()
@@ -46,12 +42,9 @@ else:
             parser.error(f"Prompt file not found: {args.prompt_file}")
     with open(args.prompt_file, "r", encoding="utf-8") as fp:
         raw_prompt = fp.read()
-
-    if args.interactive:
-        manager.interactive_loop()
-    else:
-        print("[Generating…]")
-        result = manager.infer(raw_prompt)
-        print("—" * 40)
-        print(result)
-        print("—" * 40)
+        
+    print("[Generating…]")
+    result = manager.infer(raw_prompt)
+    print("—" * 40)
+    print(result)
+    print("—" * 40)
