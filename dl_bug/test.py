@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""
-Reproduction script for: Segmentation Fault: torch.view_as_complex fails with segfault for a zero dimensional tensor
-API under test: torch.view_as_complexBug Description: Segmentation Fault: torch.view_as_complex fails with segfault for a zero dimensional tensor
-"""
+# """
+# Reproduction script for: Bug on Bernoulli (using GPU)
+# API under test: torch.nn.functional
+# """
 
 import torch
 import sys, platform, traceback
+from torch.autograd import Variable
+import torch.nn.functional as F
 
 # -- Environment diagnostics --
 print('Platform  :', platform.platform())
@@ -23,11 +25,23 @@ if torch.cuda.is_available():
 
 # ---------- Original snippet begins (executed inside try/except) ----------
 try:
-    import torch
+    a = F.sigmoid(torch.randn(10, 1))
 
-    t = torch.tensor(1.0, dtype=torch.float32)
-    print(t.is_complex())
-    t.view_as_complex()
+    # This is OK
+    a.bernoulli()
+
+    # This is OK also
+    b = a.cuda()
+    b.bernoulli()
+
+    # This is OK
+    va = Variable(a)
+    va.bernoulli()
+
+    # This is a bug!
+    vb = Variable(a).cuda()
+    vb.bernoulli()
+
 except Exception as e:
     print('\n[BUG TRIGGERED] Exception captured:')
     traceback.print_exc()
