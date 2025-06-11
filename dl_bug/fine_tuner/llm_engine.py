@@ -20,7 +20,7 @@ from transformers import (
 )
 from trl import DataCollatorForCompletionOnlyLM
 
-from utils import prompt_wrapper
+from fine_tuner.utils import prompt_wrapper
 
 
 class LLMEngine:
@@ -245,8 +245,8 @@ class LLMEngine:
     def infer(
         self,
         raw_prompt: str,
-        max_new_tokens: int = 512,
-        temperature: float = 0.5,
+        max_new_tokens: int = 1024,
+        temperature: float = 0.1,
         top_p: float = 0.9
     ) -> str:
         """
@@ -289,7 +289,7 @@ class LLMEngine:
         
         # Decode only the new tokens (excluding input prompt)
         input_length = inputs["input_ids"].shape[1]
-        generated_tokens = outputs[0]
+        generated_tokens = outputs[0][input_length:]
         response = self.tokenizer.decode(generated_tokens, skip_special_tokens=True)
         
         return response

@@ -1,0 +1,8 @@
+CODER
+python3 train.py --mode inference --model_name codellama/CodeLlama-13b-Python-hf --model_type coder --model_path CodeLlama --data_path datasets/arrow/coder
+
+INSTRUCT
+python3 train.py --mode inference --model_name meta-llama/Meta-Llama-3.1-8B-Instruct --model_type instruct --model_path Llama_31_8B --data_path datasets/arrow/instruct
+
+
+python3 fuzz.py  --instruct_name meta-llama/Meta-Llama-3.1-8B-Instruct --instruct_path Llama_31_8B --coder_name codellama/CodeLlama-13b-Python-hf --coder_path CodeLlama
